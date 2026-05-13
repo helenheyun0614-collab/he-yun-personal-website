@@ -1,0 +1,284 @@
+/* 字体由 layout.tsx 的 next/font 注入；勿在此处 @import Google Fonts，以免网络阻塞时整份 CSS 失效 */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* 默认主题变量 */
+    --background: #050505;
+    --background-gradient: linear-gradient(135deg, #050505 0%, #0a0a0a 100%);
+    --text-main: #FFFFFF;
+    --primary: #C7D2FF;
+    --primary-glow: rgba(199, 210, 255, 0.3);
+    --secondary: #A0AEC0;
+    --tertiary: #718096;
+    --surface: rgba(255,255,255,0.04);
+    --surface-hover: rgba(255,255,255,0.08);
+    --border-color: rgba(255,255,255,0.1);
+
+    /* 字体变量 */
+    --font-heading: 'Inter, system-ui, sans-serif';
+    --font-body: 'Inter, system-ui, sans-serif';
+    --font-mono: 'Geist Mono, JetBrains Mono, monospace';
+
+    /* 效果变量 */
+    --particle-color: rgba(199, 210, 255, 0.3);
+    --glass-opacity: 0.6;
+    --shadow-intensity: 0.1;
+
+    /* 样式变量 */
+    --border-radius: 8px;
+    --border-width: 1px;
+  }
+
+  html {
+    font-family: var(--font-body);
+  }
+
+  body {
+    background: var(--background-gradient);
+    color: var(--text-main);
+    transition: background 0.3s ease, color 0.3s ease, font-family 0.3s ease;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+    font-weight: 300;
+    letter-spacing: -0.025em;
+  }
+
+  .mono-text {
+    font-family: var(--font-mono);
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+}
+
+@layer components {
+  .glass-card {
+    background: var(--surface);
+    backdrop-filter: blur(calc(var(--glass-opacity) * 16px));
+    border: var(--border-width) solid var(--border-color);
+    border-radius: var(--border-radius);
+    transition: all 0.3s ease;
+  }
+
+  .glass-card:hover {
+    background: var(--surface-hover);
+    border-color: var(--primary);
+    box-shadow: 0 0 30px var(--primary-glow);
+  }
+
+  .text-primary {
+    color: var(--primary);
+  }
+
+  .text-secondary {
+    color: var(--secondary);
+  }
+
+  .text-tertiary {
+    color: var(--tertiary);
+  }
+
+  .section-padding {
+    padding: 6rem 1.5rem;
+  }
+
+  .container-max {
+    max-width: 72rem;
+    margin: 0 auto;
+  }
+
+  .mono-text {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .editorial-heading {
+    font-family: var(--font-heading);
+    font-size: 2.25rem;
+    line-height: 1.1;
+    letter-spacing: -0.025em;
+  }
+
+  @media (min-width: 768px) {
+    .editorial-heading {
+      font-size: 3.75rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .editorial-heading {
+      font-size: 4.5rem;
+    }
+  }
+
+  .editorial-subheading {
+    font-family: var(--font-body);
+    font-size: 1.125rem;
+    color: var(--secondary);
+    line-height: 1.625;
+  }
+
+  @media (min-width: 768px) {
+    .editorial-subheading {
+      font-size: 1.25rem;
+    }
+  }
+
+  .terminal-text {
+    font-family: var(--font-mono);
+    font-size: 0.875rem;
+    line-height: 1.625rem;
+    color: var(--primary);
+    opacity: 0.8;
+  }
+
+  @media (min-width: 768px) {
+    .terminal-text {
+      font-size: 1rem;
+    }
+  }
+
+  .research-console-grid {
+    background-size: 56px 56px;
+    background-image:
+      linear-gradient(to right, rgba(255, 255, 255, 0.022) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.022) 1px, transparent 1px);
+    mask-image: linear-gradient(to bottom, black 0%, black 50%, transparent 100%);
+  }
+
+  .research-console-noise {
+    opacity: 0.04;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .research-console-cursor {
+    animation: researchCursorBlink 1.2s ease-in-out infinite;
+  }
+}
+
+@keyframes researchCursorBlink {
+  0%,
+  42% {
+    opacity: 1;
+  }
+  52%,
+  100% {
+    opacity: 0.08;
+  }
+}
+
+/* Research console (no framer-motion — avoids Next vendor-chunks/motion-dom SSR issues) */
+.research-particle {
+  opacity: 0;
+  transition: opacity 0.9s ease;
+}
+
+.research-console-in-view .research-particle {
+  opacity: 1;
+  animation: researchParticleFloat var(--p-dur, 14s) ease-in-out infinite;
+  animation-delay: var(--p-delay, 0s);
+}
+
+@keyframes researchParticleFloat {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 0.14;
+  }
+  50% {
+    transform: translateY(-18px) scale(1.75);
+    opacity: 0.42;
+  }
+}
+
+.research-signal-dot {
+  animation: researchSignalBreath 3.2s ease-in-out infinite;
+}
+
+@keyframes researchSignalBreath {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.12);
+  }
+}
+
+.research-coord-row {
+  opacity: 0;
+  transform: translateX(-14px);
+}
+
+.research-console-in-view .research-coord-row {
+  opacity: 1;
+  transform: translateX(0);
+  transition:
+    opacity 0.65s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.65s cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: calc(0.12s + var(--row-i, 0) * 0.07s);
+}
+
+.research-coord-pulse-ring {
+  animation: researchCoordPulseRing 2.4s ease-out infinite;
+}
+
+@keyframes researchCoordPulseRing {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  55% {
+    transform: scale(2.05);
+    opacity: 0;
+  }
+}
+
+@layer utilities {
+  .text-glow {
+    text-shadow: 0 0 20px var(--primary-glow);
+  }
+
+  .border-glow {
+    box-shadow: 0 0 20px var(--primary-glow);
+  }
+
+  .particle {
+    position: absolute;
+    width: 2px;
+    height: 2px;
+    background: var(--particle-color);
+    border-radius: 50%;
+    animation: float 6s ease-in-out infinite;
+  }
+}
+
+/* 自定义滚动条 */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--background);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--primary-glow);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--primary-glow);
+}

@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(lsof -ti:3000)",
+      "Bash(xargs kill -9)",
+      "Bash(npm run *)",
+      "Bash(curl -s http://localhost:3000)",
+      "Bash(awk 'NR==119 {print}' /Users/helen/he-yun-personal-website/src/components/ai-console.tsx)",
+      "Bash(awk '/What'\\\\''s\\\\''/ {print NR, \": \" \"$0}' /Users/helen/he-yun-personal-website/src/components/ai-console.tsx)"
+    ]
+  }
+}
