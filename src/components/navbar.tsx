@@ -18,6 +18,7 @@ export function Navbar() {
 
   const navItems = [
     { key: 'nav.ecosystem', href: '#ecosystem' },
+    { key: 'nav.interact', href: '#interact' },
     { key: 'nav.journey', href: '#journey' },
     { key: 'nav.contact', href: '#contact' },
   ]

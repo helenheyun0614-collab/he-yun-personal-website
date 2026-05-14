@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
+import { useLanguage } from '@/contexts/language-context'
 
 interface StoryMoment {
   id: string
@@ -141,7 +142,6 @@ export function JourneyTimeline() {
     const diff = (index - currentIndex + storyMoments.length) % storyMoments.length
 
     if (diff === 0) {
-      // 中间当前图片
       return {
         transform: 'translateX(0) scale(1)',
         opacity: 1,
@@ -149,7 +149,6 @@ export function JourneyTimeline() {
         zIndex: 3
       }
     } else if (diff === 1 || diff === storyMoments.length - 1) {
-      // 两侧图片 - 大屏幕间距更紧凑，尺寸更大
       const isLeft = diff === storyMoments.length - 1
       return {
         transform: `translateX(${isLeft ? '-70%' : '70%'}) scale(0.85)`,
@@ -158,7 +157,6 @@ export function JourneyTimeline() {
         zIndex: 1
       }
     } else {
-      // 其他隐藏图片
       return {
         transform: 'translateX(0) scale(0.7)',
         opacity: 0,
@@ -171,7 +169,6 @@ export function JourneyTimeline() {
   return (
     <section id="journey" className="section-padding bg-background border-t border-white/5">
       <div className="container-max">
-        {/* 标题 */}
         <div className="text-center mb-12">
           <p className="mono-text text-xs text-tertiary mb-4 tracking-wider">OBSERVATIONS</p>
           <h2 className="text-3xl md:text-4xl text-white font-light">
@@ -184,9 +181,7 @@ export function JourneyTimeline() {
           </p>
         </div>
 
-        {/* 轮播展示 */}
         <div className="relative w-full h-[350px] md:h-[450px] lg:h-[550px] flex items-center justify-center overflow-hidden">
-          {/* 轮播图片 */}
           <div className="absolute inset-0 flex items-center justify-center">
             {storyMoments.map((moment, index) => {
               const style = getSlideStyle(index)
@@ -209,13 +204,11 @@ export function JourneyTimeline() {
                         priority
                       />
 
-                      {/* 渐变覆盖 */}
                       <div
                         className="absolute inset-0 bg-gradient-to-b from-transparent via-black/60 to-transparent"
                         style={{ opacity: 0.3 }}
                       />
 
-                      {/* 文字信息 */}
                       {index === currentIndex && (
                         <div className="absolute bottom-0 left-0 right-0 p-6">
                           <p className="mono-text text-xs text-primary/90 mb-2 tracking-wider">
@@ -233,7 +226,6 @@ export function JourneyTimeline() {
             })}
           </div>
 
-          {/* 左侧按钮 */}
           <button
             onClick={prevSlide}
             className="absolute left-2 md:left-8 lg:left-12 top-1/2 -translate-y-1/2 w-10 h-10 md:w-12 h-12 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center text-white transition-all duration-300 backdrop-blur-sm border border-white/10 hover:border-white/30 z-10 group"
@@ -243,7 +235,6 @@ export function JourneyTimeline() {
             </svg>
           </button>
 
-          {/* 右侧按钮 */}
           <button
             onClick={nextSlide}
             className="absolute right-2 md:right-8 lg:right-12 top-1/2 -translate-y-1/2 w-10 h-10 md:w-12 h-12 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center text-white transition-all duration-300 backdrop-blur-sm border border-white/10 hover:border-white/30 z-10 group"
@@ -253,7 +244,6 @@ export function JourneyTimeline() {
             </svg>
           </button>
 
-          {/* 底部指示器 */}
           <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex gap-1.5 z-10">
             {storyMoments.map((_, index) => (
               <button

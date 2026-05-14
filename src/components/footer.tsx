@@ -17,7 +17,7 @@ export function Footer() {
             <a href="#" className="mono-text text-xs text-tertiary hover:text-primary transition-colors">
               LINKEDIN
             </a>
-            <a href="mailto:yun.he@miner.cn" className="mono-text text-xs text-tertiary hover:text-primary transition-colors">
+            <a href="mailto:yun.he@aminer.cn" className="mono-text text-xs text-tertiary hover:text-primary transition-colors">
               EMAIL
             </a>
           </div>

@@ -15,6 +15,7 @@ export default function Home() {
       <Ecosystem />
       <AIConsole />
       <Contact />
+      <JourneyTimeline />
     </div>
   )
 }

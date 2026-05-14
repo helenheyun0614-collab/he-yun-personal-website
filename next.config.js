@@ -10,21 +10,6 @@ const nextConfig = {
     }
     return config
   },
-  images: {
-    domains: [
-      'img.youtube.com',
-      'i.ytimg.com',
-      'maas-log-prod.cn-wlcb.ufileos.com'
-    ],
-    unoptimized: false,
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'maas-log-prod.cn-wlcb.ufileos.com',
-        pathname: '/anthropic/**',
-      },
-    ],
-  },
 }
 
 module.exports = nextConfig

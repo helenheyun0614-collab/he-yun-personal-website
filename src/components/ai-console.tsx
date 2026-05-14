@@ -111,27 +111,27 @@ export function AIConsole() {
   }
 
   const suggestedQuestionsEn = [
-    "What's AI TIME?",
-    "What's beyond Copilots?",
-    "How do we move beyond LLMs?",
-    "How do we build AI-native talent?",
-    "What's future of AGI ecosystems?",
-    "How can young researchers contribute?"
+    "What's left after Scaling?",
+    "Are Agents more like employees or organizations?",
+    "Why does research taste matter?",
+    "What will be scarcer than models?",
+    "Will AI rewrite organizational structures?",
+    "Search for today's AI news"
   ]
 
   const suggestedQuestionsZh = [
-    "AI TIME是什么？",
-    "LLM之后是什么？",
-    "如何超越大模型？",
-    "如何构建AI原生人才？",
-    "AGI生态的未来是什么？",
-    "青年研究者如何参与？"
+    "Scaling 之后还剩什么？",
+    "Agent 更像员工还是组织？",
+    "为什么 research taste 很重要？",
+    "什么会比模型更稀缺？",
+    "AI 会重写组织结构吗？",
+    "搜索今天的AI热点新闻"
   ]
 
   const suggestedQuestions = language === 'en' ? suggestedQuestionsEn : suggestedQuestionsZh
 
   return (
-    <section className="section-padding bg-background border-t border-white/5 relative z-10">
+    <section id="interact" className="section-padding bg-background border-t border-white/5 relative z-10">
       <div className="container-max max-w-4xl">
         <div className="mb-8">
           <p className="mono-text text-xs text-tertiary mb-4">INTERACT</p>

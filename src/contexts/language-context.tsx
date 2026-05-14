@@ -18,6 +18,7 @@ const translations = {
   en: {
     'nav.ecosystem': 'Ecosystem',
     'nav.journey': 'Journey',
+    'nav.interact': 'Interact',
     'nav.contact': 'Contact',
     'hero.name': 'Helen Heyun',
     'hero.title': 'Building AGI-native talent ecosystems.',
@@ -47,7 +48,7 @@ const translations = {
     'ecosystem.academic': 'Academic Network',
     'ecosystem.people': 'Initiators',
     'ecosystem.industry': 'Industry Partners',
-    'ecosystem.community': 'Community',
+    'ecosystem.community': 'Overseas Network',
     'journey.title': 'Journey Through the AI Era',
     'journey.subtitle': 'In the AGI era, we are all participants and shapers.',
     'chat.title': 'Ask Helen',
@@ -69,6 +70,7 @@ const translations = {
   zh: {
     'nav.ecosystem': '生态网络',
     'nav.journey': '历程',
+    'nav.interact': '交互',
     'nav.contact': '联系',
     'hero.name': 'Helen Heyun',
     'hero.title': '构建 AGI 原生人才生态系统。',
@@ -97,7 +99,7 @@ const translations = {
     'ecosystem.academic': '学术网络',
     'ecosystem.people': '发起人',
     'ecosystem.industry': '产业伙伴',
-    'ecosystem.community': '社区',
+    'ecosystem.community': '海外网络',
     'journey.title': '穿越 AI 时代的历程',
     'journey.subtitle': '在 AGI 时代，我们都是参与者和塑造者。',
     'chat.title': '问 Helen',

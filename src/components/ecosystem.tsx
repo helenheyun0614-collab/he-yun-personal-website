@@ -52,31 +52,35 @@ export function Ecosystem() {
       "Zhipu AI",
       "ByteDance",
       "Alibaba DAMO Academy",
-      "Tencent AI Lab",
-      "Huawei Cloud AI",
-      "SenseTime"
+      "Tencent",
+      "DiDi",
+      "OPPO",
+      "......"
     ],
     companiesZh: [
-      "智谱 AI",
+      "智谱",
       "字节跳动",
       "阿里达摩院",
-      "腾讯 AI Lab",
-      "华为云 AI",
-      "商汤科技"
+      "腾讯",
+      "滴滴",
+      "OPPO",
+      "......"
     ],
     community: [
-      "AI TIME Community",
-      "AGI Research Network",
-      "Young Scholar Forum",
-      "AI Ethics Council",
-      "Tech Education Alliance"
+      "Dartmouth College",
+      "MIT",
+      "CMU",
+      "Ohio State University",
+      "Duke University",
+      "The University of Hong Kong"
     ],
     communityZh: [
-      "AI TIME 社区",
-      "AGI 研究网络",
-      "青年学者论坛",
-      "AI 伦理委员会",
-      "科技教育联盟"
+      "达特茅斯学院",
+      "麻省理工学院",
+      "卡内基梅隆大学",
+      "俄亥俄州立大学",
+      "杜克大学",
+      "香港大学"
     ],
     events: [
       "AI TIME Annual Conference",

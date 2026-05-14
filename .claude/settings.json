@@ -6,7 +6,15 @@
       "Bash(npm run *)",
       "Bash(curl -s http://localhost:3000)",
       "Bash(awk 'NR==119 {print}' /Users/helen/he-yun-personal-website/src/components/ai-console.tsx)",
-      "Bash(awk '/What'\\\\''s\\\\''/ {print NR, \": \" \"$0}' /Users/helen/he-yun-personal-website/src/components/ai-console.tsx)"
+      "Bash(awk '/What'\\\\''s\\\\''/ {print NR, \": \" \"$0}' /Users/helen/he-yun-personal-website/src/components/ai-console.tsx)",
+      "Bash(rm -rf .next && npm run dev)",
+      "Bash(PORT=3000 npm run dev)",
+      "Bash(curl -s http://localhost:3001)",
+      "Bash(curl -s -w '%{http_code}' http://localhost:3001)",
+      "Bash(echo \"Server: $\\(curl -s -w '%{http_code}' http://localhost:3001\\)\")"
+    ],
+    "additionalDirectories": [
+      "/Users/helen/he-yun-personal-website/.next"
     ]
   }
 }
