@@ -8,22 +8,41 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        // 背景系统
         background: 'var(--background)',
+        backgroundSecondary: 'var(--background-secondary)',
+        
+        // 卡片层
         surface: 'var(--surface)',
         surfaceHover: 'var(--surface-hover)',
-        primary: 'var(--primary)',
-        primaryDim: 'rgba(199, 210, 255, 0.6)',
+        surfaceActive: 'var(--surface-active)',
+        
+        // 品牌色
+        brand: {
+          DEFAULT: 'var(--brand)',
+          hover: 'var(--brand-hover)',
+          highlight: 'var(--brand-highlight)',
+          glow: 'var(--brand-glow)',
+        },
+        
+        // 文字层次
         text: {
+          hero: 'var(--text-hero)',
           main: 'var(--text-main)',
-          secondary: 'var(--secondary)',
-          tertiary: 'var(--tertiary)'
-        }
+          secondary: 'var(--text-secondary)',
+          tertiary: 'var(--text-tertiary)',
+        },
+        
+        // 边框
+        border: {
+          DEFAULT: 'var(--border-color)',
+          hover: 'var(--border-hover)',
+        },
       },
       fontFamily: {
         sans: ['var(--font-body)', 'system-ui', 'sans-serif'],
         heading: ['var(--font-heading)', 'system-ui', 'sans-serif'],
         mono: ['var(--font-mono)', 'monospace'],
-        // 额外的字体族支持
         inter: ['Inter', 'system-ui', 'sans-serif'],
         orbitron: ['Orbitron', 'Rajdhani', 'sans-serif'],
         rajdhani: ['Rajdhani', 'Segoe UI', 'sans-serif'],
@@ -40,6 +59,7 @@ module.exports = {
         'float': 'float 6s ease-in-out infinite',
         'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
         'typing': 'typing 3.5s steps(40, end)',
+        'breath': 'breathGlow 4s ease-in-out infinite',
       },
       keyframes: {
         fadeIn: {
@@ -58,6 +78,10 @@ module.exports = {
           'from': { width: '0' },
           'to': { width: '100%' },
         },
+        breathGlow: {
+          '0%, 100%': { opacity: '0.15', transform: 'scale(1)' },
+          '50%': { opacity: '0.25', transform: 'scale(1.05)' },
+        },
       },
       backdropBlur: {
         xs: '2px',
@@ -67,6 +91,10 @@ module.exports = {
       },
       borderWidth: {
         variable: 'var(--border-width)',
+      },
+      boxShadow: {
+        'brand': '0 0 30px var(--brand-glow)',
+        'brand-strong': '0 0 40px var(--brand-glow-strong)',
       },
     },
   },

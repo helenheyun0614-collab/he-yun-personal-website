@@ -4,6 +4,7 @@ import { Metadata } from 'next'
 import { Navbar } from '@/components/navbar'
 import { Footer } from '@/components/footer'
 import { LanguageProvider } from '@/contexts/language-context'
+import BackgroundAtmosphere from '@/components/ui/BackgroundAtmosphere'
 
 const inter = Inter({ subsets: ['latin'], display: 'swap' })
 const playfair = Playfair_Display({
@@ -39,11 +40,12 @@ export default function RootLayout({
     <html lang="zh-CN" className={`${inter.className} ${playfair.variable}`}>
       <body
         className="min-h-screen flex flex-col"
-        style={{ backgroundColor: '#050505', color: '#f1f5f9' }}
+        style={{ backgroundColor: '#0B0F14', color: 'var(--text-main)' }}
       >
         <LanguageProvider>
+          <BackgroundAtmosphere />
           <Navbar />
-          <main className="flex-1">
+          <main className="flex-1 relative z-10">
             {children}
           </main>
           <Footer />

@@ -3,18 +3,16 @@
 import { useState, useEffect } from 'react'
 import { HeroImage } from './hero-image'
 import { useLanguage } from '@/contexts/language-context'
-import { HERO_ROLE_TAGS } from '@/lib/hero-role-tags'
 
 export function Hero() {
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
-  const { t, language } = useLanguage()
-  const [tag0, tag1, tag2] = HERO_ROLE_TAGS[language]
+  const { language } = useLanguage()
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       setMousePosition({
-        x: (e.clientX / window.innerWidth - 0.5) * 30,
-        y: (e.clientY / window.innerHeight - 0.5) * 30
+        x: (e.clientX / window.innerWidth - 0.5) * 20,
+        y: (e.clientY / window.innerHeight - 0.5) * 20
       })
     }
 
@@ -22,23 +20,44 @@ export function Hero() {
     return () => window.removeEventListener('mousemove', handleMouseMove)
   }, [])
 
-  const particles = Array.from({ length: 80 }, (_, i) => ({
+  const particles = Array.from({ length: 40 }, (_, i) => ({
     id: i,
     left: Math.random() * 100,
     top: Math.random() * 100,
     delay: Math.random() * 8,
-    duration: 6 + Math.random() * 6,
+    duration: 8 + Math.random() * 8,
     size: 1 + Math.random() * 2
   }))
 
+  const content = {
+    zh: {
+      name: 'Helen Heyun',
+      tagline: 'Building research ecosystems for the AGI era',
+      roles: 'Operator · Observer · Connector',
+      rolesSub: 'between frontier labs and future talent',
+      focusTitle: 'Current Focus',
+      focusItems: ['AGI infrastructure', 'Research ecosystems', 'Human-AI collaboration']
+    },
+    en: {
+      name: 'Helen Heyun',
+      tagline: 'Building research ecosystems for the AGI era',
+      roles: 'Operator · Observer · Connector',
+      rolesSub: 'between frontier labs and future talent',
+      focusTitle: 'Current Focus',
+      focusItems: ['AGI infrastructure', 'Research ecosystems', 'Human-AI collaboration']
+    }
+  }
+
+  const c = content[language]
+
   return (
-    <section className="relative min-h-screen flex items-center overflow-hidden" style={{ background: 'var(--background-gradient)' }}>
+    <section className="relative min-h-screen flex items-center overflow-hidden" style={{ background: 'transparent' }}>
       {/* 动态粒子背景 */}
       <div className="absolute inset-0">
         {particles.map((particle) => (
           <div
             key={particle.id}
-            className="particle opacity-30"
+            className="absolute rounded-full"
             style={{
               left: `${particle.left}%`,
               top: `${particle.top}%`,
@@ -46,46 +65,87 @@ export function Hero() {
               height: `${particle.size}px`,
               animationDelay: `${particle.delay}s`,
               animationDuration: `${particle.duration}s`,
-              background: 'var(--particle-color)'
+              background: 'var(--brand)',
+              opacity: 0.2,
+              animation: 'float 8s ease-in-out infinite',
             }}
           />
         ))}
       </div>
 
       {/* 主要内容 */}
-      <div className="relative z-10 px-6 md:px-12 w-full">
-        <div className="max-w-5xl mx-auto">
-          <div className="flex flex-col lg:flex-row items-center gap-8 lg:gap-12 justify-center">
+      <div className="relative z-10 px-6 md:px-12 w-full py-20">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex flex-col lg:flex-row items-center gap-12 lg:gap-16 justify-center">
             {/* 左侧：文字内容 */}
             <div
-              className="space-y-6 w-full lg:w-1/2"
+              className="space-y-8 w-full lg:w-3/5"
               style={{
-                transform: `translate(${mousePosition.x * 0.2}px, ${mousePosition.y * 0.2}px)`
+                transform: `translate(${mousePosition.x * 0.1}px, ${mousePosition.y * 0.1}px)`
               }}
             >
-              <div className="animate-blur-in text-center lg:text-left">
-                <h1 className="text-5xl md:text-6xl font-heading font-light text-white leading-tight mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-                  {t('hero.name')}
+              <div className="animate-blur-in">
+                {/* 名字 */}
+                <h1 
+                  className="text-5xl md:text-6xl lg:text-7xl font-heading font-light leading-tight mb-6"
+                  style={{ 
+                    fontFamily: 'var(--font-heading)',
+                    color: 'var(--text-hero)'
+                  }}
+                >
+                  {c.name}
                 </h1>
 
-                <h2 className="text-xl md:text-2xl font-heading font-light text-primary mb-6 leading-relaxed" style={{ fontFamily: 'var(--font-heading)' }}>
-                  {t('hero.title')}
-                </h2>
-
-                <p className="text-lg text-secondary leading-relaxed mb-6 max-w-lg mx-auto lg:mx-0" style={{ fontFamily: 'var(--font-body)' }}>
-                  {t('hero.subtitle')}
+                {/* 标语 */}
+                <p 
+                  className="text-xl md:text-2xl font-light mb-6 leading-relaxed"
+                  style={{ 
+                    color: 'var(--brand)',
+                    fontFamily: 'var(--font-body)'
+                  }}
+                >
+                  {c.tagline}
                 </p>
 
-                {/* 身份标签（文案见 lib/hero-role-tags.ts，不经翻译表以免缓存旧 bundle） */}
-                <div className="flex flex-wrap gap-3 justify-center lg:justify-start" key={language}>
-                  <div className="px-3 py-1.5 rounded-full border" style={{ background: 'var(--surface)', borderColor: 'var(--border-color)', borderRadius: 'var(--border-radius)' }}>
-                    <span className="mono-text text-xs" style={{ color: 'var(--tertiary)' }}>{tag0}</span>
-                  </div>
-                  <div className="px-3 py-1.5 rounded-full border" style={{ background: 'var(--surface)', borderColor: 'var(--border-color)', borderRadius: 'var(--border-radius)' }}>
-                    <span className="mono-text text-xs" style={{ color: 'var(--tertiary)' }}>{tag1}</span>
-                  </div>
-                  <div className="px-3 py-1.5 rounded-full border" style={{ background: 'var(--surface)', borderColor: 'var(--border-color)', borderRadius: 'var(--border-radius)' }}>
-                    <span className="mono-text text-xs" style={{ color: 'var(--tertiary)' }}>{tag2}</span>
+                {/* 角色定位 */}
+                <div className="mb-8">
+                  <p 
+                    className="text-lg md:text-xl mb-2"
+                    style={{ color: 'var(--text-main)' }}
+                  >
+                    {c.roles}
+                  </p>
+                  <p 
+                    className="text-base md:text-lg"
+                    style={{ color: 'var(--text-secondary)' }}
+                  >
+                    {c.rolesSub}
+                  </p>
+                </div>
+
+                {/* Current Focus */}
+                <div className="glass-card p-6 inline-block">
+                  <p 
+                    className="mono-text text-xs mb-3"
+                    style={{ color: 'var(--brand)' }}
+                  >
+                    {c.focusTitle}
+                  </p>
+                  <div className="flex flex-wrap gap-3">
+                    {c.focusItems.map((item, i) => (
+                      <span
+                        key={i}
+                        className="px-3 py-1 text-sm"
+                        style={{
+                          background: 'var(--surface)',
+                          color: 'var(--text-main)',
+                          borderRadius: '6px',
+                          border: '1px solid var(--border-color)'
+                        }}
+                      >
+                        {item}
+                      </span>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -93,9 +153,9 @@ export function Hero() {
 
             {/* 右侧：照片展示 */}
             <div
-              className="relative h-80 md:h-[450px] lg:h-[480px] w-full lg:w-1/2 flex items-center justify-center"
+              className="relative h-72 md:h-[400px] lg:h-[450px] w-full lg:w-2/5 flex items-center justify-center"
               style={{
-                transform: `translate(${-mousePosition.x * 0.15}px, ${-mousePosition.y * 0.15}px)`
+                transform: `translate(${-mousePosition.x * 0.08}px, ${-mousePosition.y * 0.08}px)`
               }}
             >
               <HeroImage />
@@ -105,15 +165,24 @@ export function Hero() {
       </div>
 
       {/* 滚动提示 */}
-      <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-fade-in" style={{ animationDelay: '2s' }}>
-        <p className="mono-text text-xs mb-2" style={{ color: 'var(--tertiary)' }}>
-          {t('scrollToExplore')}
+      <div 
+        className="absolute bottom-12 left-1/2 transform -translate-x-1/2 animate-fade-in" 
+        style={{ animationDelay: '2s' }}
+      >
+        <div 
+          className="w-px h-16 mx-auto mb-2"
+          style={{ 
+            background: 'linear-gradient(to bottom, var(--brand), transparent)',
+            opacity: 0.5
+          }} 
+        />
+        <p 
+          className="mono-text text-xs"
+          style={{ color: 'var(--text-tertiary)' }}
+        >
+          {language === 'zh' ? '向下探索' : 'scroll to explore'}
         </p>
-        <div className="w-px h-16 mx-auto" style={{ background: 'linear-gradient(to bottom, var(--primary), transparent)' }} />
       </div>
-
-      {/* 底部渐变 */}
-      <div className="absolute bottom-0 left-0 right-0 h-32" style={{ background: 'linear-gradient(to top, var(--background), transparent)' }} />
     </section>
   )
 }
