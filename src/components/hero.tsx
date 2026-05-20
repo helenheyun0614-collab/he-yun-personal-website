@@ -36,7 +36,7 @@ export function Hero() {
       roles: '运营者 · 观察者 · 连接者',
       rolesSub: '连接前沿实验室与未来人才',
       focusTitle: '当前关注',
-      focusItems: ['AGI 基础设施', '研究生态系统', '人机协作']
+      focusItems: ['AGI 基础设施', '研究生态系统', '自我进化']
     },
     en: {
       name: 'Helen Heyun',
@@ -44,7 +44,7 @@ export function Hero() {
       roles: 'Operator · Observer · Connector',
       rolesSub: 'between frontier labs and future talent',
       focusTitle: 'Current Focus',
-      focusItems: ['AGI infrastructure', 'Research ecosystems', 'Human-AI collaboration']
+      focusItems: ['AGI infrastructure', 'Research ecosystems', 'Self-evolution']
     }
   }
 
