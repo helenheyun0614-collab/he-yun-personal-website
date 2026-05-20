@@ -19,7 +19,7 @@ const PARTICLES = [
   { left: '58%', top: '42%', d: 1.9, dur: 16 },
 ]
 
-const COORD_KEYS = ['research.coord.1', 'research.coord.2', 'research.coord.3', 'research.coord.4', 'research.coord.5', 'research.coord.6'] as const
+const COORD_KEYS = ['research.coord.1', 'research.coord.2', 'research.coord.3', 'research.coord.4', 'research.coord.5'] as const
 
 export function ThinkingStream() {
   const { ref: sectionRef, inView } = useInView({
