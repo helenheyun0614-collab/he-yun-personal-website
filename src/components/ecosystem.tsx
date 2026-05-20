@@ -121,55 +121,94 @@ export function Ecosystem() {
   const focus = isZh ? ecosystemData.focusZh : ecosystemData.focus
 
   return (
-    <section id="ecosystem" className="section-padding bg-background border-t border-white/5">
+    <section 
+      id="ecosystem" 
+      className="section-padding relative"
+      style={{ background: 'transparent' }}
+    >
       <div className="container-max">
         <div className="mb-12">
-          <p className="mono-text text-xs text-tertiary mb-4">ECOSYSTEM</p>
-          <h2 className="editorial-heading text-4xl md:text-5xl">
+          <p 
+            className="mono-text text-xs mb-4"
+            style={{ color: 'var(--brand)' }}
+          >
+            ECOSYSTEM
+          </p>
+          <h2 
+            className="editorial-heading text-4xl md:text-5xl"
+            style={{ color: 'var(--text-hero)' }}
+          >
             {t('ecosystem.title')}
           </h2>
-          <p className="text-xl text-secondary mt-4 max-w-3xl">
+          <p 
+            className="text-xl mt-4 max-w-3xl"
+            style={{ color: 'var(--text-secondary)' }}
+          >
             {t('ecosystem.subtitle')}
           </p>
         </div>
 
         {/* 影响数据 */}
-        <div className="grid grid-cols-5 gap-3 mb-8">
-          <div className="glass-card p-4 text-center">
-            <div className="text-2xl font-bold text-primary mb-1">{ecosystemData.impact.students}</div>
-            <div className="mono-text text-[10px] text-tertiary">{t('ecosystem.students')}</div>
-          </div>
-          <div className="glass-card p-4 text-center">
-            <div className="text-2xl font-bold text-primary mb-1">{ecosystemData.impact.researchers}</div>
-            <div className="mono-text text-[10px] text-tertiary">{t('ecosystem.researchers')}</div>
-          </div>
-          <div className="glass-card p-4 text-center">
-            <div className="text-2xl font-bold text-primary mb-1">{ecosystemData.impact.universities}</div>
-            <div className="mono-text text-[10px] text-tertiary">{t('ecosystem.universities')}</div>
-          </div>
-          <div className="glass-card p-4 text-center">
-            <div className="text-2xl font-bold text-primary mb-1">{ecosystemData.impact.companies}</div>
-            <div className="mono-text text-[10px] text-tertiary">{t('ecosystem.companies')}</div>
-          </div>
-          <div className="glass-card p-4 text-center">
-            <div className="text-2xl font-bold text-primary mb-1">{ecosystemData.impact.events}</div>
-            <div className="mono-text text-[10px] text-tertiary">{t('ecosystem.events')}</div>
-          </div>
+        <div className="grid grid-cols-5 gap-3 mb-10">
+          {[
+            { value: ecosystemData.impact.students, label: t('ecosystem.students') },
+            { value: ecosystemData.impact.researchers, label: t('ecosystem.researchers') },
+            { value: ecosystemData.impact.universities, label: t('ecosystem.universities') },
+            { value: ecosystemData.impact.companies, label: t('ecosystem.companies') },
+            { value: ecosystemData.impact.events, label: t('ecosystem.events') }
+          ].map((item, i) => (
+            <div key={i} className="glass-card p-4 text-center">
+              <div 
+                className="text-2xl font-bold mb-1"
+                style={{ color: 'var(--brand)' }}
+              >
+                {item.value}
+              </div>
+              <div 
+                className="mono-text text-[10px]"
+                style={{ color: 'var(--text-tertiary)' }}
+              >
+                {item.label}
+              </div>
+            </div>
+          ))}
         </div>
 
         {/* 生态网络 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {/* 当前关注 */}
-          <div className="space-y-3 md:col-span-2">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-3 h-3 rounded-full bg-primary/60" />
-              <h3 className="text-lg font-medium text-text-main">{t('ecosystem.focus')}</h3>
+          <div className="space-y-4 md:col-span-2">
+            <div className="flex items-center gap-2 mb-2">
+              <div 
+                className="w-2.5 h-2.5 rounded-full"
+                style={{ background: 'var(--brand)' }}
+              />
+              <h3 
+                className="text-lg font-medium"
+                style={{ color: 'var(--text-main)' }}
+              >
+                {t('ecosystem.focus')}
+              </h3>
             </div>
             <div className="flex flex-wrap gap-2">
               {focus.map((item, i) => (
                 <span
                   key={i}
-                  className="px-3 py-1.5 bg-surface border border-white/10 rounded-full text-sm text-text-secondary hover:border-primary/30 hover:text-primary transition-colors"
+                  className="px-4 py-2 rounded-full text-sm transition-all duration-300 cursor-default"
+                  style={{
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-secondary)',
+                    borderRadius: 'var(--border-radius)',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--border-hover)'
+                    e.currentTarget.style.color = 'var(--brand)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--border-color)'
+                    e.currentTarget.style.color = 'var(--text-secondary)'
+                  }}
                 >
                   {item}
                 </span>
@@ -178,16 +217,26 @@ export function Ecosystem() {
           </div>
 
           {/* 学术界 */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-3 h-3 rounded-full bg-blue-500/60" />
-              <h3 className="text-lg font-medium text-text-main">{t('ecosystem.academic')}</h3>
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-2.5 h-2.5 rounded-full bg-blue-400/70" />
+              <h3 
+                className="text-lg font-medium"
+                style={{ color: 'var(--text-main)' }}
+              >
+                {t('ecosystem.academic')}
+              </h3>
             </div>
             <div className="flex flex-wrap gap-2">
               {universities.map((uni, i) => (
                 <span
                   key={i}
-                  className="px-3 py-1.5 bg-surface border border-white/10 rounded-full text-sm text-text-secondary hover:border-primary/30 hover:text-primary transition-colors"
+                  className="px-3 py-1.5 rounded-full text-sm transition-all duration-300"
+                  style={{
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-secondary)',
+                  }}
                 >
                   {uni}
                 </span>
@@ -196,16 +245,26 @@ export function Ecosystem() {
           </div>
 
           {/* 研究者 */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-3 h-3 rounded-full bg-purple-500/60" />
-              <h3 className="text-lg font-medium text-text-main">{t('ecosystem.people')}</h3>
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-2.5 h-2.5 rounded-full bg-purple-400/70" />
+              <h3 
+                className="text-lg font-medium"
+                style={{ color: 'var(--text-main)' }}
+              >
+                {t('ecosystem.people')}
+              </h3>
             </div>
             <div className="flex flex-wrap gap-2">
               {researchers.map((researcher, i) => (
                 <span
                   key={i}
-                  className="px-3 py-1.5 bg-surface border border-white/10 rounded-full text-sm text-text-secondary hover:border-primary/30 hover:text-primary transition-colors"
+                  className="px-3 py-1.5 rounded-full text-sm transition-all duration-300"
+                  style={{
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-secondary)',
+                  }}
                 >
                   {researcher}
                 </span>
@@ -214,16 +273,26 @@ export function Ecosystem() {
           </div>
 
           {/* 产业界 */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-3 h-3 rounded-full bg-green-500/60" />
-              <h3 className="text-lg font-medium text-text-main">{t('ecosystem.industry')}</h3>
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-2.5 h-2.5 rounded-full bg-emerald-400/70" />
+              <h3 
+                className="text-lg font-medium"
+                style={{ color: 'var(--text-main)' }}
+              >
+                {t('ecosystem.industry')}
+              </h3>
             </div>
             <div className="flex flex-wrap gap-2">
               {companies.map((company, i) => (
                 <span
                   key={i}
-                  className="px-3 py-1.5 bg-surface border border-white/10 rounded-full text-sm text-text-secondary hover:border-primary/30 hover:text-primary transition-colors"
+                  className="px-3 py-1.5 rounded-full text-sm transition-all duration-300"
+                  style={{
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-secondary)',
+                  }}
                 >
                   {company}
                 </span>
@@ -231,17 +300,27 @@ export function Ecosystem() {
             </div>
           </div>
 
-          {/* 社区 */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-3 h-3 rounded-full bg-orange-500/60" />
-              <h3 className="text-lg font-medium text-text-main">{t('ecosystem.community')}</h3>
+          {/* 海外网络 */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-2.5 h-2.5 rounded-full bg-amber-400/70" />
+              <h3 
+                className="text-lg font-medium"
+                style={{ color: 'var(--text-main)' }}
+              >
+                {t('ecosystem.community')}
+              </h3>
             </div>
             <div className="flex flex-wrap gap-2">
               {community.map((comm, i) => (
                 <span
                   key={i}
-                  className="px-3 py-1.5 bg-surface border border-white/10 rounded-full text-sm text-text-secondary hover:border-primary/30 hover:text-primary transition-colors"
+                  className="px-3 py-1.5 rounded-full text-sm transition-all duration-300"
+                  style={{
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-secondary)',
+                  }}
                 >
                   {comm}
                 </span>

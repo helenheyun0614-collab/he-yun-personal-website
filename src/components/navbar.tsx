@@ -24,19 +24,34 @@ export function Navbar() {
   ]
 
   return (
-    <nav className={`fixed w-full z-50 transition-all duration-500 ${
-      isScrolled
-        ? 'bg-background/80 backdrop-blur-md border-b border-white/5'
-        : 'bg-transparent'
-    }`}>
-      <div className="section-padding">
+    <nav 
+      className={`fixed w-full z-50 transition-all duration-500 ${
+        isScrolled
+          ? 'backdrop-blur-md border-b'
+          : 'bg-transparent'
+      }`}
+      style={{
+        background: isScrolled ? 'rgba(11, 15, 20, 0.85)' : 'transparent',
+        borderColor: isScrolled ? 'var(--border-color)' : 'transparent'
+      }}
+    >
+      <div className="section-padding py-4">
         <div className="container-max flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-            <span className="text-lg font-light text-text-main tracking-tight">
+            <div 
+              className="w-2 h-2 rounded-full animate-pulse"
+              style={{ background: 'var(--brand)' }}
+            />
+            <span 
+              className="text-lg font-light tracking-tight"
+              style={{ color: 'var(--text-hero)' }}
+            >
               Helen Heyun
             </span>
-            <span className="text-sm text-secondary hidden md:inline-block ml-2">
+            <span 
+              className="text-sm hidden md:inline-block ml-2"
+              style={{ color: 'var(--text-tertiary)' }}
+            >
               | {language === 'en' ? 'AI TIME | AI Ecosystem Builder' : 'AI TIME | 生态构建 · 社区连接 · AI传播'}
             </span>
           </div>
@@ -47,7 +62,14 @@ export function Navbar() {
               <a
                 key={item.key}
                 href={item.href}
-                className="mono-text text-xs text-tertiary hover:text-primary transition-colors"
+                className="mono-text text-xs transition-colors duration-300"
+                style={{ color: 'var(--text-tertiary)' }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = 'var(--brand)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = 'var(--text-tertiary)'
+                }}
               >
                 {t(item.key)}
               </a>
@@ -56,7 +78,18 @@ export function Navbar() {
             {/* Language Switcher */}
             <button
               onClick={() => setLanguage(language === 'en' ? 'zh' : 'en')}
-              className="mono-text text-xs px-3 py-1.5 bg-surface hover:bg-surfaceHover border border-white/10 rounded-lg transition-all duration-300"
+              className="mono-text text-xs px-3 py-1.5 rounded-lg transition-all duration-300"
+              style={{
+                background: 'var(--surface)',
+                border: '1px solid var(--border-color)',
+                color: 'var(--text-secondary)'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'var(--border-hover)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'var(--border-color)'
+              }}
             >
               {language === 'en' ? '中文' : 'EN'}
             </button>
@@ -64,7 +97,8 @@ export function Navbar() {
 
           {/* Mobile Menu Button */}
           <button
-            className="md:hidden p-2 text-text-main hover:text-primary transition-colors"
+            className="md:hidden p-2 transition-colors"
+            style={{ color: 'var(--text-main)' }}
             onClick={() => setIsMenuOpen(!isMenuOpen)}
           >
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -79,13 +113,17 @@ export function Navbar() {
 
         {/* Mobile Navigation */}
         {isMenuOpen && (
-          <div className="md:hidden mt-4 pt-4 border-t border-white/10">
+          <div 
+            className="md:hidden mt-4 pt-4"
+            style={{ borderTop: '1px solid var(--border-color)' }}
+          >
             <div className="space-y-4">
               {navItems.map((item) => (
                 <a
                   key={item.key}
                   href={item.href}
-                  className="block mono-text text-xs text-tertiary hover:text-primary transition-colors"
+                  className="block mono-text text-xs transition-colors"
+                  style={{ color: 'var(--text-tertiary)' }}
                   onClick={() => setIsMenuOpen(false)}
                 >
                   {t(item.key)}
@@ -95,7 +133,12 @@ export function Navbar() {
               {/* Mobile Language Switcher */}
               <button
                 onClick={() => setLanguage(language === 'en' ? 'zh' : 'en')}
-                className="w-full mono-text text-xs px-4 py-2 bg-surface hover:bg-surfaceHover border border-white/10 rounded-lg transition-all duration-300"
+                className="w-full mono-text text-xs px-4 py-2 rounded-lg transition-all duration-300"
+                style={{
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-secondary)'
+                }}
               >
                 {language === 'en' ? '中文' : 'EN'}
               </button>
