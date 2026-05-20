@@ -32,11 +32,11 @@ export function Hero() {
   const content = {
     zh: {
       name: 'Helen Heyun',
-      tagline: 'Building research ecosystems for the AGI era',
-      roles: 'Operator · Observer · Connector',
-      rolesSub: 'between frontier labs and future talent',
-      focusTitle: 'Current Focus',
-      focusItems: ['AGI infrastructure', 'Research ecosystems', 'Human-AI collaboration']
+      tagline: '为 AGI 时代构建研究生态系统',
+      roles: '运营者 · 观察者 · 连接者',
+      rolesSub: '连接前沿实验室与未来人才',
+      focusTitle: '当前关注',
+      focusItems: ['AGI 基础设施', '研究生态系统', '人机协作']
     },
     en: {
       name: 'Helen Heyun',
@@ -78,40 +78,33 @@ export function Hero() {
         <div className="max-w-6xl mx-auto">
           <div className="flex flex-col lg:flex-row items-center gap-12 lg:gap-16 justify-center">
             {/* 左侧：文字内容 */}
-            <div
-              className="space-y-8 w-full lg:w-3/5"
-              style={{
-                transform: `translate(${mousePosition.x * 0.1}px, ${mousePosition.y * 0.1}px)`
-              }}
-            >
-              <div className="animate-blur-in">
+            <div className="flex-1 max-w-2xl" style={{ transform: `translate(${mousePosition.x * 0.5}px, ${mousePosition.y * 0.5}px)`, transition: 'transform 0.3s ease-out' }}>
+              <div className="space-y-8">
                 {/* 名字 */}
-                <h1 
-                  className="text-5xl md:text-6xl lg:text-7xl font-heading font-light leading-tight mb-6"
-                  style={{ 
-                    fontFamily: 'var(--font-heading)',
-                    color: 'var(--text-hero)'
-                  }}
-                >
-                  {c.name}
-                </h1>
+                <div>
+                  <h1 
+                    className="editorial-heading text-5xl md:text-6xl lg:text-7xl"
+                    style={{ color: 'var(--text-hero)' }}
+                  >
+                    {c.name}
+                  </h1>
+                </div>
 
                 {/* 标语 */}
-                <p 
-                  className="text-xl md:text-2xl font-light mb-6 leading-relaxed"
-                  style={{ 
-                    color: 'var(--brand)',
-                    fontFamily: 'var(--font-body)'
-                  }}
-                >
-                  {c.tagline}
-                </p>
+                <div>
+                  <p 
+                    className="text-xl md:text-2xl lg:text-3xl font-light leading-relaxed"
+                    style={{ color: 'var(--text-main)' }}
+                  >
+                    {c.tagline}
+                  </p>
+                </div>
 
                 {/* 角色定位 */}
-                <div className="mb-8">
+                <div className="space-y-3">
                   <p 
-                    className="text-lg md:text-xl mb-2"
-                    style={{ color: 'var(--text-main)' }}
+                    className="text-lg md:text-xl font-light tracking-wide"
+                    style={{ color: 'var(--brand)' }}
                   >
                     {c.roles}
                   </p>
@@ -124,64 +117,48 @@ export function Hero() {
                 </div>
 
                 {/* Current Focus */}
-                <div className="glass-card p-6 inline-block">
+                <div 
+                  className="glass-card p-6 mt-8"
+                  style={{ maxWidth: '400px' }}
+                >
                   <p 
-                    className="mono-text text-xs mb-3"
+                    className="mono-text text-xs mb-4"
                     style={{ color: 'var(--brand)' }}
                   >
                     {c.focusTitle}
                   </p>
-                  <div className="flex flex-wrap gap-3">
+                  <div className="space-y-2">
                     {c.focusItems.map((item, i) => (
-                      <span
+                      <div 
                         key={i}
-                        className="px-3 py-1 text-sm"
-                        style={{
-                          background: 'var(--surface)',
-                          color: 'var(--text-main)',
-                          borderRadius: '6px',
-                          border: '1px solid var(--border-color)'
-                        }}
+                        className="flex items-center gap-3"
                       >
-                        {item}
-                      </span>
+                        <div 
+                          className="w-1.5 h-1.5 rounded-full"
+                          style={{ background: 'var(--brand)' }}
+                        />
+                        <span 
+                          className="text-sm"
+                          style={{ color: 'var(--text-secondary)' }}
+                        >
+                          {item}
+                        </span>
+                      </div>
                     ))}
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* 右侧：照片展示 */}
-            <div
-              className="relative h-72 md:h-[400px] lg:h-[450px] w-full lg:w-2/5 flex items-center justify-center"
-              style={{
-                transform: `translate(${-mousePosition.x * 0.08}px, ${-mousePosition.y * 0.08}px)`
-              }}
+            {/* 右侧：照片 */}
+            <div 
+              className="flex-1 max-w-md lg:max-w-lg h-[400px] md:h-[500px] lg:h-[600px]"
+              style={{ transform: `translate(${mousePosition.x}px, ${mousePosition.y}px)`, transition: 'transform 0.3s ease-out' }}
             >
               <HeroImage />
             </div>
           </div>
         </div>
-      </div>
-
-      {/* 滚动提示 */}
-      <div 
-        className="absolute bottom-12 left-1/2 transform -translate-x-1/2 animate-fade-in" 
-        style={{ animationDelay: '2s' }}
-      >
-        <div 
-          className="w-px h-16 mx-auto mb-2"
-          style={{ 
-            background: 'linear-gradient(to bottom, var(--brand), transparent)',
-            opacity: 0.5
-          }} 
-        />
-        <p 
-          className="mono-text text-xs"
-          style={{ color: 'var(--text-tertiary)' }}
-        >
-          {language === 'zh' ? '向下探索' : 'scroll to explore'}
-        </p>
       </div>
     </section>
   )
