@@ -69,7 +69,6 @@ export function AIConsole() {
 
   const handleSuggestedQuestion = (question: string) => {
     setInput(question)
-    // 自动提交
     setTimeout(async () => {
       const newMessages = [...messages, { role: 'user' as const, content: question }]
 
@@ -131,11 +130,23 @@ export function AIConsole() {
   const suggestedQuestions = language === 'en' ? suggestedQuestionsEn : suggestedQuestionsZh
 
   return (
-    <section id="interact" className="section-padding bg-background border-t border-white/5 relative z-10">
+    <section 
+      id="interact" 
+      className="section-padding relative z-10"
+      style={{ background: 'transparent' }}
+    >
       <div className="container-max max-w-4xl">
         <div className="mb-8">
-          <p className="mono-text text-xs text-tertiary mb-4">INTERACT</p>
-          <h2 className="editorial-heading text-3xl md:text-4xl">
+          <p 
+            className="mono-text text-xs mb-4"
+            style={{ color: 'var(--brand)' }}
+          >
+            INTERACT
+          </p>
+          <h2 
+            className="editorial-heading text-3xl md:text-4xl"
+            style={{ color: 'var(--text-hero)' }}
+          >
             {t('chat.title')}
           </h2>
         </div>
@@ -150,11 +161,15 @@ export function AIConsole() {
                 className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 <div
-                  className={`max-w-[80%] p-4 ${
-                    message.role === 'user'
-                      ? 'bg-primary/10 text-text-main border border-primary/20'
-                      : 'bg-surface text-secondary'
-                  }`}
+                  className="max-w-[80%] p-4"
+                  style={{
+                    background: message.role === 'user' 
+                      ? 'var(--surface-active)' 
+                      : 'var(--surface)',
+                    border: `1px solid ${message.role === 'user' ? 'var(--border-hover)' : 'var(--border-color)'}`,
+                    color: message.role === 'user' ? 'var(--brand)' : 'var(--text-main)',
+                    borderRadius: 'var(--border-radius)',
+                  }}
                 >
                   <p className="text-sm leading-relaxed whitespace-pre-wrap">
                     {message.content}
@@ -165,11 +180,26 @@ export function AIConsole() {
 
             {isTyping && (
               <div className="flex justify-start">
-                <div className="bg-surface p-4">
+                <div 
+                  className="p-4"
+                  style={{
+                    background: 'var(--surface)',
+                    borderRadius: 'var(--border-radius)',
+                  }}
+                >
                   <div className="flex gap-1">
-                    <div className="w-2 h-2 bg-primary/60 rounded-full animate-pulse" />
-                    <div className="w-2 h-2 bg-primary/60 rounded-full animate-pulse delay-100" />
-                    <div className="w-2 h-2 bg-primary/60 rounded-full animate-pulse delay-200" />
+                    <div 
+                      className="w-2 h-2 rounded-full"
+                      style={{ background: 'var(--brand)', opacity: 0.6, animation: 'pulse 1.5s ease-in-out infinite' }}
+                    />
+                    <div 
+                      className="w-2 h-2 rounded-full"
+                      style={{ background: 'var(--brand)', opacity: 0.6, animation: 'pulse 1.5s ease-in-out infinite', animationDelay: '0.1s' }}
+                    />
+                    <div 
+                      className="w-2 h-2 rounded-full"
+                      style={{ background: 'var(--brand)', opacity: 0.6, animation: 'pulse 1.5s ease-in-out infinite', animationDelay: '0.2s' }}
+                    />
                   </div>
                 </div>
               </div>
@@ -177,19 +207,41 @@ export function AIConsole() {
           </div>
 
           {/* 输入区域 */}
-          <form onSubmit={handleSend} className="p-6 border-t border-white/5">
+          <form 
+            onSubmit={handleSend} 
+            className="p-6"
+            style={{ borderTop: '1px solid var(--border-color)' }}
+          >
             <div className="flex gap-3">
               <input
                 type="text"
                 value={input}
                 onChange={handleInputChange}
                 placeholder={t('chat.placeholder')}
-                className="flex-1 bg-background border border-white/10 rounded-lg px-4 py-3 text-sm text-text-main placeholder-tertiary focus:outline-none focus:border-primary/30 transition-colors"
+                className="flex-1 px-4 py-3 text-sm focus:outline-none transition-colors"
+                style={{
+                  background: 'var(--background)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: 'var(--border-radius)',
+                  color: 'var(--text-main)',
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--border-hover)'
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--border-color)'
+                }}
               />
               <button
                 type="submit"
                 disabled={!input.trim() || isTyping}
-                className="px-6 py-3 bg-primary/10 text-primary rounded-lg text-sm font-medium hover:bg-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors border border-primary/20"
+                className="px-6 py-3 text-sm font-medium transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{
+                  background: 'var(--surface-active)',
+                  color: 'var(--brand)',
+                  border: '1px solid var(--border-hover)',
+                  borderRadius: 'var(--border-radius)',
+                }}
               >
                 {t('chat.send')}
               </button>
@@ -199,14 +251,33 @@ export function AIConsole() {
 
         {/* 示例问题 */}
         <div className="mt-6">
-          <p className="mono-text text-xs text-tertiary mb-3">{t('chat.suggested')}</p>
+          <p 
+            className="mono-text text-xs mb-3"
+            style={{ color: 'var(--text-tertiary)' }}
+          >
+            {t('chat.suggested')}
+          </p>
           <div className="flex flex-wrap gap-2">
             {suggestedQuestions.map((question, index) => (
               <button
                 key={index}
                 type="button"
                 onClick={() => handleSuggestedQuestion(question)}
-                className="px-3 py-1.5 bg-surface hover:bg-surfaceHover border border-white/10 rounded-full text-xs text-secondary hover:text-primary transition-colors cursor-pointer"
+                className="px-3 py-1.5 text-xs transition-all duration-300 cursor-pointer"
+                style={{
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: 'var(--border-radius)',
+                  color: 'var(--text-secondary)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--border-hover)'
+                  e.currentTarget.style.color = 'var(--brand)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--border-color)'
+                  e.currentTarget.style.color = 'var(--text-secondary)'
+                }}
               >
                 {question}
               </button>
