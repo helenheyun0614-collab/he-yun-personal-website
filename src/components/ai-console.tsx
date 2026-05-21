@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useLanguage } from '@/contexts/language-context'
 
 export function AIConsole() {
@@ -15,24 +15,33 @@ export function AIConsole() {
   const abortControllerRef = useRef<AbortController | null>(null)
   const shouldAutoScrollRef = useRef(true)
 
-  // 自动滚动到底部
-  const scrollToBottom = (smooth: boolean = true) => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ 
-        behavior: smooth ? 'smooth' : 'auto',
-        block: 'end' 
-      })
+  // 自动滚动到底部 - 使用直接设置 scrollTop
+  const scrollToBottom = useCallback((smooth: boolean = true) => {
+    if (messagesContainerRef.current) {
+      const container = messagesContainerRef.current
+      const scrollHeight = container.scrollHeight
+      
+      if (smooth) {
+        // 平滑滚动
+        container.scrollTo({
+          top: scrollHeight,
+          behavior: 'smooth'
+        })
+      } else {
+        // 立即滚动
+        container.scrollTop = scrollHeight
+      }
     }
-  }
+  }, [])
 
   // 检测用户是否在查看历史消息
-  const handleScroll = () => {
+  const handleScroll = useCallback(() => {
     if (messagesContainerRef.current) {
       const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current
-      const isAtBottom = scrollHeight - scrollTop - clientHeight < 50
+      const isAtBottom = scrollHeight - scrollTop - clientHeight < 80
       shouldAutoScrollRef.current = isAtBottom
     }
-  }
+  }, [])
 
   // 初始问候
   useEffect(() => {
@@ -42,14 +51,24 @@ export function AIConsole() {
         content: t('chat.greeting')
       }
     ])
-  }, [language])
+  }, [language, t])
 
   // 流式输出时自动滚动
   useEffect(() => {
     if (streamingContent && shouldAutoScrollRef.current) {
-      scrollToBottom()
+      // 使用 requestAnimationFrame 确保在 DOM 更新后滚动
+      requestAnimationFrame(() => {
+        scrollToBottom(false) // 流式输出时用即时滚动，避免卡顿
+      })
     }
-  }, [streamingContent])
+  }, [streamingContent, scrollToBottom])
+
+  // 新消息添加后滚动
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      scrollToBottom(true)
+    })
+  }, [messages, scrollToBottom])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInput(e.target.value)
@@ -167,7 +186,11 @@ export function AIConsole() {
 
   const handleSuggestedQuestion = async (question: string) => {
     if (isStreaming) return
-    scrollToBottom()
+    
+    // 立即滚动到底部
+    shouldAutoScrollRef.current = true
+    scrollToBottom(false)
+    
     await sendMessage(question)
   }
 
@@ -223,6 +246,7 @@ export function AIConsole() {
             style={{ 
               scrollBehavior: 'smooth',
               scrollbarWidth: 'thin',
+              overscrollBehavior: 'contain',
             }}
           >
             {messages.map((message, index) => (
