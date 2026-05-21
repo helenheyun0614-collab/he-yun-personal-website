@@ -22,12 +22,13 @@ export function AIConsole() {
   const [input, setInput] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
   const [streamingContent, setStreamingContent] = useState('')
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   
   const { language, t } = useLanguage()
   const containerRef = useRef<HTMLDivElement>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
   const scrollRafRef = useRef<number | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   const currentConversation = conversations.find(c => c.id === currentConversationId)
   const messages = currentConversation?.messages || []
@@ -207,9 +208,9 @@ export function AIConsole() {
   return (
     <section id="interact" className="section-padding relative z-10" style={{ background: 'transparent' }}>
       <div className="container-max">
-        <div className="mb-8">
-          <p className="mono-text text-xs mb-4" style={{ color: 'var(--brand)' }}>INTERACT</p>
-          <h2 className="editorial-heading text-3xl md:text-4xl" style={{ color: 'var(--text-hero)' }}>{t('chat.title')}</h2>
+        <div className="mb-6 md:mb-8 pl-12 md:pl-0">
+          <p className="mono-text text-xs mb-3 md:mb-4" style={{ color: 'var(--brand)' }}>INTERACT</p>
+          <h2 className="editorial-heading text-2xl md:text-3xl lg:text-4xl" style={{ color: 'var(--text-hero)' }}>{t('chat.title')}</h2>
         </div>
 
         {/* 全宽flex容器 */}
@@ -225,32 +226,38 @@ export function AIConsole() {
           <div style={{ flex: 1, minWidth: 0, padding: '0 1rem' }}>
             <div 
               ref={containerRef}
-              className="glass-card p-6"
-              style={{ maxHeight: '600px', overflowY: 'auto', scrollbarWidth: 'thin' }}
+              className="glass-card p-4 md:p-6"
+              style={{ 
+                maxHeight: '70vh', 
+                minHeight: '400px',
+                overflowY: 'auto', 
+                scrollbarWidth: 'thin',
+                WebkitOverflowScrolling: 'touch',
+              }}
             >
-              <div className="space-y-4 mb-6">
+              <div className="space-y-3 md:space-y-4 mb-4 md:mb-6">
                 {messages.map((message, index) => (
                   <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                     <div
-                      className="max-w-[85%]"
+                      className="max-w-[90%] md:max-w-[85%]"
                       style={{
-                        padding: message.role === 'user' ? '12px 16px' : '0',
+                        padding: message.role === 'user' ? '14px 18px' : '0',
                         background: message.role === 'user' ? 'rgba(127, 231, 196, 0.1)' : 'transparent',
-                        borderRadius: message.role === 'user' ? '16px' : '0',
+                        borderRadius: message.role === 'user' ? '18px' : '0',
                         color: message.role === 'user' ? 'var(--brand)' : 'var(--text-main)',
                       }}
                     >
-                      <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
+                      <p className="text-sm md:text-base leading-relaxed whitespace-pre-wrap">{message.content}</p>
                     </div>
                   </div>
                 ))}
 
                 {isStreaming && streamingContent && (
                   <div className="flex justify-start">
-                    <div className="max-w-[85%]">
-                      <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--text-main)' }}>
+                    <div className="max-w-[90%] md:max-w-[85%]">
+                      <p className="text-sm md:text-base leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--text-main)' }}>
                         {streamingContent}
-                        <span className="inline-block w-0.5 h-4 ml-0.5" style={{ background: 'var(--brand)', animation: 'blink 1s infinite' }} />
+                        <span className="inline-block w-0.5 h-4 md:h-5 ml-0.5" style={{ background: 'var(--brand)', animation: 'blink 1s infinite' }} />
                       </p>
                     </div>
                   </div>
@@ -267,6 +274,7 @@ export function AIConsole() {
                 )}
               </div>
 
+              {/* 预设问题 - 移动端优化 */}
               <div className="flex flex-wrap gap-2 mb-4">
                 {suggestedQuestions.map((question, index) => (
                   <button
@@ -274,35 +282,73 @@ export function AIConsole() {
                     type="button"
                     onClick={() => handleSuggestedQuestion(question)}
                     disabled={isStreaming}
-                    className="px-3 py-1.5 text-xs transition-all duration-200 disabled:opacity-40 cursor-pointer"
-                    style={{ background: 'var(--surface)', border: '1px solid var(--border-color)', borderRadius: '12px', color: 'var(--text-secondary)' }}
+                    className="px-3 py-2 md:py-1.5 text-xs md:text-sm transition-all duration-200 disabled:opacity-40 cursor-pointer active:scale-95"
+                    style={{ 
+                      background: 'var(--surface)', 
+                      border: '1px solid var(--border-color)', 
+                      borderRadius: '16px', 
+                      color: 'var(--text-secondary)',
+                      minHeight: '44px', // 触摸友好
+                      WebkitTapHighlightColor: 'transparent',
+                    }}
                   >
                     {question}
                   </button>
                 ))}
               </div>
 
+              {/* 输入框 - 移动端优化 */}
               <form onSubmit={handleSend}>
-                <div className="flex gap-3">
+                <div className="flex gap-2 md:gap-3">
                   <input
+                    ref={inputRef}
                     type="text"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     placeholder={isStreaming ? 'Response in progress...' : t('chat.placeholder')}
                     disabled={isStreaming}
-                    className="flex-1 px-4 py-3 text-sm focus:outline-none disabled:opacity-50"
-                    style={{ background: 'var(--surface)', border: '1px solid var(--border-color)', borderRadius: '16px', color: 'var(--text-main)' }}
+                    className="flex-1 px-4 py-3.5 md:py-3 text-sm md:text-base focus:outline-none disabled:opacity-50"
+                    style={{ 
+                      background: 'var(--surface)', 
+                      border: '1px solid var(--border-color)', 
+                      borderRadius: '18px md:16px', 
+                      color: 'var(--text-main)',
+                      minHeight: '48px',
+                      fontSize: '16px', // 防止iOS自动缩放
+                    }}
                   />
                   
                   {isStreaming ? (
-                    <button type="button" onClick={stopStreaming} className="px-5 py-3 text-sm font-medium flex items-center gap-2 cursor-pointer"
-                      style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '16px' }}>
+                    <button 
+                      type="button" 
+                      onClick={stopStreaming} 
+                      className="px-4 md:px-5 py-3 md:py-3 text-sm font-medium flex items-center gap-2 cursor-pointer active:scale-95"
+                      style={{ 
+                        background: 'rgba(239, 68, 68, 0.1)', 
+                        color: '#ef4444', 
+                        border: '1px solid rgba(239, 68, 68, 0.3)', 
+                        borderRadius: '16px',
+                        minHeight: '48px',
+                        WebkitTapHighlightColor: 'transparent',
+                      }}
+                    >
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1" fill="currentColor" /></svg>
-                      Stop
+                      <span className="hidden md:inline">Stop</span>
                     </button>
                   ) : (
-                    <button type="submit" disabled={!input.trim()} className="px-5 py-3 text-sm font-medium disabled:opacity-50 cursor-pointer"
-                      style={{ background: 'var(--surface-active)', color: 'var(--brand)', border: '1px solid var(--border-hover)', borderRadius: '16px' }}>
+                    <button 
+                      type="submit" 
+                      disabled={!input.trim()} 
+                      className="px-4 md:px-5 py-3 md:py-3 text-sm font-medium disabled:opacity-50 cursor-pointer active:scale-95"
+                      style={{ 
+                        background: 'var(--surface-active)', 
+                        color: 'var(--brand)', 
+                        border: '1px solid var(--border-hover)', 
+                        borderRadius: '16px',
+                        minHeight: '48px',
+                        WebkitTapHighlightColor: 'transparent',
+                      }}
+                    >
                       {t('chat.send')}
                     </button>
                   )}

@@ -69,8 +69,9 @@ export function ChatSidebar({
       {/* 移动端遮罩 */}
       {isOpen && (
         <div 
-          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden"
           onClick={onToggle}
+          style={{ WebkitTapHighlightColor: 'transparent' }}
         />
       )}
 
@@ -79,45 +80,50 @@ export function ChatSidebar({
         className={`
           fixed md:relative
           top-0 left-0
-          h-screen md:h-auto
+          h-screen
           z-50 md:z-0
-          transition-all duration-300
+          transition-all duration-300 ease-in-out
           ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
         `}
         style={{
-          width: isOpen ? '260px' : '0px',
-          minWidth: isOpen ? '260px' : '0px',
+          width: isOpen ? '280px' : '0px',
+          minWidth: isOpen ? '280px' : '0px',
           background: 'var(--background)',
           borderRight: isOpen ? '1px solid var(--border-color)' : 'none',
           flexShrink: 0,
+          WebkitOverflowScrolling: 'touch',
         }}
       >
         {isOpen && (
           <div className="flex flex-col h-full overflow-hidden">
-            {/* 头部 */}
-            <div className="p-4 border-b" style={{ borderColor: 'var(--border-color)' }}>
+            {/* 头部 - 移动端padding更大 */}
+            <div className="p-4 md:p-4 pt-12 md:pt-4 border-b" style={{ borderColor: 'var(--border-color)' }}>
               <button
                 onClick={onNewConversation}
-                className="w-full px-4 py-2.5 text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full px-4 py-3 md:py-2.5 text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer active:scale-95"
                 style={{
                   background: 'var(--surface)',
                   border: '1px solid var(--border-color)',
                   borderRadius: '12px',
                   color: 'var(--text-main)',
+                  minHeight: '48px', // 触摸友好
                 }}
               >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-5 h-5 md:w-4 md:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
                 {language === 'zh' ? '新对话' : 'New chat'}
               </button>
             </div>
 
-            {/* 对话列表 */}
-            <div className="flex-1 overflow-y-auto p-2">
+            {/* 对话列表 - 移动端可滚动 */}
+            <div 
+              className="flex-1 overflow-y-auto p-2"
+              style={{ WebkitOverflowScrolling: 'touch' }}
+            >
               {conversations.length === 0 ? (
                 <div className="text-center py-8">
-                  <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                  <p className="text-xs px-4" style={{ color: 'var(--text-tertiary)' }}>
                     {language === 'zh' ? '暂无历史对话' : 'No conversations yet'}
                   </p>
                 </div>
@@ -127,11 +133,13 @@ export function ChatSidebar({
                     <div
                       key={conv.id}
                       onClick={() => onSelectConversation(conv.id)}
-                      className="group p-3 rounded-lg cursor-pointer transition-all duration-200"
+                      className="group p-3 md:p-3 rounded-lg cursor-pointer transition-all duration-200 active:scale-98"
                       style={{
                         background: currentConversationId === conv.id 
                           ? 'var(--surface)' 
                           : 'transparent',
+                        minHeight: '60px', // 触摸友好
+                        WebkitTapHighlightColor: 'transparent',
                       }}
                     >
                       <div className="flex items-start justify-between gap-2">
@@ -145,10 +153,10 @@ export function ChatSidebar({
                         </div>
                         <button
                           onClick={(e) => deleteConversation(conv.id, e)}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1"
-                          style={{ color: 'var(--text-tertiary)' }}
+                          className="opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity p-2 -mr-1"
+                          style={{ color: 'var(--text-tertiary)', minHeight: '44px', minWidth: '44px' }}
                         >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                           </svg>
                         </button>
@@ -164,8 +172,11 @@ export function ChatSidebar({
               <div className="p-4 border-t" style={{ borderColor: 'var(--border-color)' }}>
                 <button
                   onClick={clearAll}
-                  className="w-full px-4 py-2 text-xs transition-all duration-200 cursor-pointer"
-                  style={{ color: 'var(--text-tertiary)' }}
+                  className="w-full px-4 py-3 text-xs transition-all duration-200 cursor-pointer active:scale-95"
+                  style={{ 
+                    color: 'var(--text-tertiary)',
+                    minHeight: '44px', // 触摸友好
+                  }}
                 >
                   {language === 'zh' ? '清空所有对话' : 'Clear all conversations'}
                 </button>
@@ -175,17 +186,21 @@ export function ChatSidebar({
         )}
       </div>
 
-      {/* 折叠按钮 */}
+      {/* 折叠按钮 - 移动端更大更明显 */}
       <button
         onClick={onToggle}
-        className="fixed top-4 left-4 z-30 p-2 rounded-lg transition-all duration-200 cursor-pointer"
+        className="fixed top-4 left-4 z-30 p-3 md:p-2 rounded-xl md:rounded-lg transition-all duration-200 cursor-pointer active:scale-95"
         style={{
           background: 'var(--surface)',
           border: '1px solid var(--border-color)',
           color: 'var(--text-main)',
+          minHeight: '48px',
+          minWidth: '48px',
+          WebkitTapHighlightColor: 'transparent',
         }}
+        aria-label={isOpen ? 'Close sidebar' : 'Open sidebar'}
       >
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg className="w-6 h-6 md:w-5 md:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           {isOpen ? (
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
           ) : (
