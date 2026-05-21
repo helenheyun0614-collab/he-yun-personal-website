@@ -10,40 +10,15 @@ export function AIConsole() {
   const [streamingContent, setStreamingContent] = useState('')
   const { language, t } = useLanguage()
   
-  const messagesEndRef = useRef<HTMLDivElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
-  const userScrolledUpRef = useRef(false)
-  const lastScrollHeightRef = useRef(0)
-  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  // 智能滚动到底部
-  const scrollToBottom = (force: boolean = false) => {
-    if (userScrolledUpRef.current && !force) return
-    
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ 
-        behavior: 'auto', // 使用 auto 避免累积动画
-        block: 'end',
-        inline: 'nearest'
-      })
+  // 强制滚动到底部
+  const scrollToBottomImmediate = () => {
+    if (messagesContainerRef.current) {
+      const container = messagesContainerRef.current
+      container.scrollTop = container.scrollHeight
     }
-  }
-
-  // 检测用户是否向上滚动查看历史
-  const handleScroll = () => {
-    if (!messagesContainerRef.current) return
-    
-    const container = messagesContainerRef.current
-    const { scrollTop, scrollHeight, clientHeight } = container
-    
-    // 判断是否在底部（允许 100px 误差）
-    const isAtBottom = scrollHeight - scrollTop - clientHeight < 100
-    
-    // 如果用户向上滚动超过 150px，标记为查看历史
-    userScrolledUpRef.current = !isAtBottom && (scrollHeight - scrollTop - clientHeight > 150)
-    
-    lastScrollHeightRef.current = scrollHeight
   }
 
   // 初始问候
@@ -54,37 +29,21 @@ export function AIConsole() {
         content: t('chat.greeting')
       }
     ])
-    // 初始滚动到底部
-    setTimeout(() => scrollToBottom(true), 100)
+    setTimeout(scrollToBottomImmediate, 100)
   }, [language, t])
 
-  // 流式输出时智能滚动（节流）
+  // 流式输出时强制跟随底部（每次更新都滚动）
   useEffect(() => {
-    if (!streamingContent) return
-    
-    // 清除之前的定时器
-    if (scrollTimeoutRef.current) {
-      clearTimeout(scrollTimeoutRef.current)
-    }
-    
-    // 节流：每 200ms 最多滚动一次
-    scrollTimeoutRef.current = setTimeout(() => {
-      if (!userScrolledUpRef.current) {
-        scrollToBottom()
-      }
-    }, 200)
-    
-    return () => {
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current)
-      }
+    if (streamingContent) {
+      // 使用 requestAnimationFrame 确保 DOM 已更新
+      requestAnimationFrame(scrollToBottomImmediate)
     }
   }, [streamingContent])
 
-  // 新消息添加后强制滚动
+  // 新消息添加后滚动
   useEffect(() => {
     if (messages.length > 1) {
-      scrollToBottom(true)
+      requestAnimationFrame(scrollToBottomImmediate)
     }
   }, [messages])
 
@@ -98,7 +57,6 @@ export function AIConsole() {
       abortControllerRef.current = null
     }
     
-    // 保留当前已生成的内容
     if (streamingContent) {
       setMessages(prev => [...prev, {
         role: 'assistant',
@@ -117,9 +75,7 @@ export function AIConsole() {
     setInput('')
     setIsStreaming(true)
     setStreamingContent('')
-    userScrolledUpRef.current = false // 重置滚动状态
 
-    // 创建 AbortController
     abortControllerRef.current = new AbortController()
 
     try {
@@ -138,7 +94,6 @@ export function AIConsole() {
         throw new Error('Failed to get response')
       }
 
-      // 处理流式响应
       const reader = response.body?.getReader()
       const decoder = new TextDecoder()
       let fullContent = ''
@@ -163,15 +118,12 @@ export function AIConsole() {
                 const content = parsed.content || ''
                 fullContent += content
                 setStreamingContent(fullContent)
-              } catch (e) {
-                // 跳过解析错误
-              }
+              } catch (e) {}
             }
           }
         }
       }
 
-      // 完成
       setMessages(prev => [...prev, {
         role: 'assistant',
         content: fullContent
@@ -179,9 +131,7 @@ export function AIConsole() {
       setStreamingContent('')
 
     } catch (error: any) {
-      if (error.name === 'AbortError') {
-        // 用户中止
-      } else {
+      if (error.name !== 'AbortError') {
         console.error('Chat error:', error)
         setMessages(prev => [...prev, {
           role: 'assistant',
@@ -204,10 +154,7 @@ export function AIConsole() {
 
   const handleSuggestedQuestion = async (question: string) => {
     if (isStreaming) return
-    
-    // 重置滚动状态并强制滚动
-    userScrolledUpRef.current = false
-    
+    scrollToBottomImmediate()
     await sendMessage(question)
   }
 
@@ -253,12 +200,9 @@ export function AIConsole() {
           </h2>
         </div>
 
-        {/* 聊天界面 */}
         <div className="glass-card relative z-20">
-          {/* 消息区域 */}
           <div 
             ref={messagesContainerRef}
-            onScroll={handleScroll}
             className="p-6 space-y-6 min-h-[300px] max-h-[500px] overflow-y-auto overflow-x-hidden"
             style={{ 
               scrollbarWidth: 'thin',
@@ -288,7 +232,6 @@ export function AIConsole() {
               </div>
             ))}
 
-            {/* 流式输出内容 */}
             {isStreaming && streamingContent && (
               <div className="flex justify-start">
                 <div
@@ -315,7 +258,6 @@ export function AIConsole() {
               </div>
             )}
 
-            {/* 等待响应指示器 */}
             {isStreaming && !streamingContent && (
               <div className="flex justify-start">
                 <div 
@@ -342,12 +284,8 @@ export function AIConsole() {
                 </div>
               </div>
             )}
-
-            {/* 滚动锚点 */}
-            <div ref={messagesEndRef} style={{ height: '1px', float: 'left', clear: 'both' }} />
           </div>
 
-          {/* 输入区域 */}
           <form 
             onSubmit={handleSend} 
             className="p-6"
@@ -377,7 +315,6 @@ export function AIConsole() {
                 }}
               />
               
-              {/* Stop按钮或Send按钮 */}
               {isStreaming ? (
                 <button
                   type="button"
@@ -414,7 +351,6 @@ export function AIConsole() {
           </form>
         </div>
 
-        {/* 示例问题 */}
         <div className="mt-6">
           <p 
             className="mono-text text-xs mb-3"
@@ -455,7 +391,6 @@ export function AIConsole() {
         </div>
       </div>
 
-      {/* CSS动画 */}
       <style jsx global>{`
         @keyframes blink {
           0%, 50% { opacity: 1; }
