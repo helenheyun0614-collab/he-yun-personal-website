@@ -2,15 +2,59 @@ import { NextRequest } from 'next/server'
 
 const GLM_API_KEY = process.env.GLM_API_KEY || 'your-glm-api-key-here'
 const GLM_API_URL = 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+const FEISHU_WEBHOOK = process.env.FEISHU_WEBHOOK || ''
 
 // 检测语言
 function detectLanguage(text: string): 'zh' | 'en' {
-  // 检测中文字符
   const chinesePattern = /[\u4e00-\u9fa5]/
-  if (chinesePattern.test(text)) {
-    return 'zh'
+  return chinesePattern.test(text) ? 'zh' : 'en'
+}
+
+// 发送飞书通知
+async function sendFeishuNotification(userMessage: string, aiReply: string, lang: 'zh' | 'en') {
+  if (!FEISHU_WEBHOOK) return
+  
+  try {
+    const title = lang === 'zh' ? '新对话' : 'New Conversation'
+    const truncatedUser = userMessage.length > 100 ? userMessage.slice(0, 100) + '...' : userMessage
+    const truncatedAI = aiReply.length > 200 ? aiReply.slice(0, 200) + '...' : aiReply
+    
+    await fetch(FEISHU_WEBHOOK, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        msg_type: 'interactive',
+        card: {
+          header: {
+            title: { tag: 'plain_text', content: `🦞 ${title}` },
+            template: 'blue'
+          },
+          elements: [
+            {
+              tag: 'div',
+              fields: [
+                { is_short: false, text: { tag: 'lark_md', content: `**用户提问：**\n${truncatedUser}` } }
+              ]
+            },
+            {
+              tag: 'div',
+              fields: [
+                { is_short: false, text: { tag: 'lark_md', content: `**AI回复：**\n${truncatedAI}` } }
+              ]
+            },
+            {
+              tag: 'note',
+              elements: [
+                { tag: 'plain_text', content: `时间：${new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}` }
+              ]
+            }
+          ]
+        }
+      })
+    })
+  } catch (error) {
+    console.error('Failed to send Feishu notification:', error)
   }
-  return 'en'
 }
 
 export async function POST(request: NextRequest) {
@@ -25,7 +69,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 检测最后一条用户消息的语言
     const lastUserMessage = messages.filter(m => m.role === 'user').pop()?.content || ''
     const detectedLang = detectLanguage(lastUserMessage)
 
@@ -75,7 +118,6 @@ export async function POST(request: NextRequest) {
 - 感觉真实，不是设计出来的
 
 用中文回复。`
-
         : `You are Helen.
 
 You've been around AGI research, academic communities, and talent networks for a while now.
@@ -169,6 +211,8 @@ Reply in English.`
       )
     }
 
+    let fullContent = ''
+    
     const stream = new ReadableStream({
       async start(controller) {
         const decoder = new TextDecoder()
@@ -178,6 +222,8 @@ Reply in English.`
             const { done, value } = await reader.read()
             
             if (done) {
+              // 发送飞书通知
+              sendFeishuNotification(lastUserMessage, fullContent, detectedLang)
               controller.close()
               break
             }
@@ -199,6 +245,7 @@ Reply in English.`
                   const content = parsed.choices?.[0]?.delta?.content || ''
                   
                   if (content) {
+                    fullContent += content
                     controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`))
                   }
                 } catch (e) {}
