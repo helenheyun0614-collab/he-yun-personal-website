@@ -25,7 +25,7 @@ export function AIConsole() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   
   const { language, t } = useLanguage()
-  const containerRef = useRef<HTMLDivElement>(null)
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
   const scrollRafRef = useRef<number | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -83,8 +83,8 @@ export function AIConsole() {
   const scrollToBottom = useCallback(() => {
     if (scrollRafRef.current) cancelAnimationFrame(scrollRafRef.current)
     scrollRafRef.current = requestAnimationFrame(() => {
-      if (containerRef.current) {
-        containerRef.current.scrollTop = containerRef.current.scrollHeight
+      if (messagesContainerRef.current) {
+        messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
       }
       scrollRafRef.current = null
     })
@@ -224,90 +224,97 @@ export function AIConsole() {
           />
 
           <div style={{ flex: 1, minWidth: 0, padding: '0 0.5rem' }}>
+            {/* 外层容器：固定高度，flex布局 */}
             <div 
-              ref={containerRef}
               className="glass-card"
               style={{ 
-                padding: '1.25rem',
-                paddingBottom: '6rem', // 为底部固定区域留空间
-                minHeight: '400px',
-                position: 'relative',
+                display: 'flex',
+                flexDirection: 'column',
+                height: '500px',
+                maxHeight: '70vh',
               }}
             >
-              {/* 消息区域 */}
-              <div className="space-y-4 mb-5">
-                {messages.map((message, index) => (
-                  <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div
-                      className="max-w-[88%] md:max-w-[85%]"
-                      style={{
-                        padding: message.role === 'user' ? '14px 18px' : '0',
-                        background: message.role === 'user' ? 'rgba(127, 231, 196, 0.1)' : 'transparent',
-                        borderRadius: message.role === 'user' ? '18px' : '0',
-                        color: message.role === 'user' ? 'var(--brand)' : 'var(--text-main)',
-                      }}
-                    >
-                      <p className="text-sm md:text-base leading-relaxed whitespace-pre-wrap">{message.content}</p>
+              {/* 消息区域：可滚动 */}
+              <div 
+                ref={messagesContainerRef}
+                style={{ 
+                  flex: 1,
+                  overflowY: 'auto',
+                  padding: '1.25rem',
+                  paddingBottom: '0.5rem',
+                }}
+              >
+                <div className="space-y-4">
+                  {messages.map((message, index) => (
+                    <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                      <div
+                        className="max-w-[88%] md:max-w-[85%]"
+                        style={{
+                          padding: message.role === 'user' ? '14px 18px' : '0',
+                          background: message.role === 'user' ? 'rgba(127, 231, 196, 0.1)' : 'transparent',
+                          borderRadius: message.role === 'user' ? '18px' : '0',
+                          color: message.role === 'user' ? 'var(--brand)' : 'var(--text-main)',
+                        }}
+                      >
+                        <p className="text-sm md:text-base leading-relaxed whitespace-pre-wrap">{message.content}</p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
 
-                {isStreaming && streamingContent && (
-                  <div className="flex justify-start">
-                    <div className="max-w-[88%] md:max-w-[85%]">
-                      <p className="text-sm md:text-base leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--text-main)' }}>
-                        {streamingContent}
-                        <span className="inline-block w-0.5 h-4 md:h-5 ml-0.5" style={{ background: 'var(--brand)', animation: 'blink 1s infinite' }} />
-                      </p>
+                  {isStreaming && streamingContent && (
+                    <div className="flex justify-start">
+                      <div className="max-w-[88%] md:max-w-[85%]">
+                        <p className="text-sm md:text-base leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--text-main)' }}>
+                          {streamingContent}
+                          <span className="inline-block w-0.5 h-4 md:h-5 ml-0.5" style={{ background: 'var(--brand)', animation: 'blink 1s infinite' }} />
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {isStreaming && !streamingContent && (
-                  <div className="flex justify-start">
-                    <div className="flex gap-1 py-2">
-                      {[0, 1, 2].map(i => (
-                        <div key={i} className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--brand)', opacity: 0.5, animation: 'pulse 1.5s ease-in-out infinite', animationDelay: `${i * 0.1}s` }} />
-                      ))}
+                  {isStreaming && !streamingContent && (
+                    <div className="flex justify-start">
+                      <div className="flex gap-1 py-2">
+                        {[0, 1, 2].map(i => (
+                          <div key={i} className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--brand)', opacity: 0.5, animation: 'pulse 1.5s ease-in-out infinite', animationDelay: `${i * 0.1}s` }} />
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
 
-              {/* 预设问题 */}
-              <div className="flex flex-wrap gap-2 mb-4">
-                {suggestedQuestions.map((question, index) => (
-                  <button
-                    key={index}
-                    type="button"
-                    onClick={() => handleSuggestedQuestion(question)}
-                    disabled={isStreaming}
-                    className="px-3 py-2 text-xs md:text-sm transition-all duration-200 disabled:opacity-40"
-                    style={{ 
-                      background: 'var(--surface)', 
-                      border: '1px solid var(--border-color)', 
-                      borderRadius: '16px', 
-                      color: 'var(--text-secondary)',
-                      minHeight: '44px',
-                    }}
-                  >
-                    {question}
-                  </button>
-                ))}
-              </div>
-
-              {/* 底部固定区域：输入框和按钮 */}
+              {/* 底部固定区域：预设问题 + 输入框 */}
               <div 
                 style={{
-                  position: 'absolute',
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
+                  flexShrink: 0,
                   padding: '1rem 1.25rem',
                   background: 'var(--background)',
                   borderTop: '1px solid var(--border-color)',
                 }}
               >
+                {/* 预设问题 */}
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {suggestedQuestions.slice(0, 4).map((question, index) => (
+                    <button
+                      key={index}
+                      type="button"
+                      onClick={() => handleSuggestedQuestion(question)}
+                      disabled={isStreaming}
+                      className="px-3 py-2 text-xs md:text-sm transition-all duration-200 disabled:opacity-40"
+                      style={{ 
+                        background: 'var(--surface)', 
+                        border: '1px solid var(--border-color)', 
+                        borderRadius: '16px', 
+                        color: 'var(--text-secondary)',
+                        minHeight: '44px',
+                      }}
+                    >
+                      {question}
+                    </button>
+                  ))}
+                </div>
+
                 <form onSubmit={handleSend}>
                   <div className="flex flex-col gap-3">
                     {/* 流式输出时，停止按钮在输入框上方 */}
