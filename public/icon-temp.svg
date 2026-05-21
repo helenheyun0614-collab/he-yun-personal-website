@@ -1,0 +1,20 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- 背景 -->
+  <rect width="512" height="512" fill="#0a0a0a" rx="64"/>
+  
+  <!-- 绿色圆点 -->
+  <circle cx="256" cy="200" r="30" fill="#7FE7C4"/>
+  
+  <!-- 文字 H -->
+  <text x="256" y="320" 
+        font-family="system-ui, -apple-system, sans-serif" 
+        font-size="200" 
+        font-weight="200"
+        fill="#ffffff" 
+        text-anchor="middle">
+    H
+  </text>
+  
+  <!-- 品牌色下划线 -->
+  <rect x="156" y="360" width="200" height="4" fill="#7FE7C4" rx="2"/>
+</svg>

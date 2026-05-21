@@ -229,7 +229,9 @@ export function AIConsole() {
               className="glass-card"
               style={{ 
                 padding: '1.25rem',
+                paddingBottom: '6rem', // 为底部固定区域留空间
                 minHeight: '400px',
+                position: 'relative',
               }}
             >
               {/* 消息区域 */}
@@ -294,61 +296,76 @@ export function AIConsole() {
                 ))}
               </div>
 
-              {/* 输入框 - 垂直布局 */}
-              <form onSubmit={handleSend}>
-                <div className="flex flex-col gap-3">
-                  <input
-                    ref={inputRef}
-                    type="text"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    placeholder={isStreaming ? 'Response in progress...' : t('chat.placeholder')}
-                    disabled={isStreaming}
-                    className="w-full px-4 py-3.5 text-sm md:text-base focus:outline-none disabled:opacity-50"
-                    style={{ 
-                      background: 'var(--surface)', 
-                      border: '1px solid var(--border-color)', 
-                      borderRadius: '18px', 
-                      color: 'var(--text-main)',
-                      minHeight: '48px',
-                      fontSize: '16px',
-                    }}
-                  />
-                  
-                  {isStreaming ? (
-                    <button 
-                      type="button" 
-                      onClick={stopStreaming} 
-                      className="w-full py-3.5 text-sm font-medium flex items-center justify-center gap-2"
+              {/* 底部固定区域：输入框和按钮 */}
+              <div 
+                style={{
+                  position: 'absolute',
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  padding: '1rem 1.25rem',
+                  background: 'var(--background)',
+                  borderTop: '1px solid var(--border-color)',
+                }}
+              >
+                <form onSubmit={handleSend}>
+                  <div className="flex flex-col gap-3">
+                    {/* 流式输出时，停止按钮在输入框上方 */}
+                    {isStreaming && (
+                      <button 
+                        type="button" 
+                        onClick={stopStreaming} 
+                        className="w-full py-3.5 text-sm font-medium flex items-center justify-center gap-2"
+                        style={{ 
+                          background: 'rgba(239, 68, 68, 0.1)', 
+                          color: '#ef4444', 
+                          border: '1px solid rgba(239, 68, 68, 0.3)', 
+                          borderRadius: '18px',
+                          minHeight: '48px',
+                        }}
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1" fill="currentColor" /></svg>
+                        Stop
+                      </button>
+                    )}
+                    
+                    <input
+                      ref={inputRef}
+                      type="text"
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      placeholder={isStreaming ? 'Response in progress...' : t('chat.placeholder')}
+                      disabled={isStreaming}
+                      className="w-full px-4 py-3.5 text-sm md:text-base focus:outline-none disabled:opacity-50"
                       style={{ 
-                        background: 'rgba(239, 68, 68, 0.1)', 
-                        color: '#ef4444', 
-                        border: '1px solid rgba(239, 68, 68, 0.3)', 
-                        borderRadius: '18px',
+                        background: 'var(--surface)', 
+                        border: '1px solid var(--border-color)', 
+                        borderRadius: '18px', 
+                        color: 'var(--text-main)',
                         minHeight: '48px',
+                        fontSize: '16px',
                       }}
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1" fill="currentColor" /></svg>
-                      Stop
-                    </button>
-                  ) : (
-                    <button 
-                      type="submit" 
-                      disabled={!input.trim()} 
-                      className="w-full py-3.5 text-sm font-medium disabled:opacity-50"
-                      style={{ 
-                        background: 'var(--surface-active)', 
-                        color: 'var(--brand)', 
-                        border: '1px solid var(--border-hover)', 
-                        borderRadius: '18px',
-                        minHeight: '48px',
-                      }}
-                    >
-                      发送
-                    </button>
-                  )}
-                </div>
-              </form>
+                    />
+                    
+                    {!isStreaming && (
+                      <button 
+                        type="submit" 
+                        disabled={!input.trim()} 
+                        className="w-full py-3.5 text-sm font-medium disabled:opacity-50"
+                        style={{ 
+                          background: 'var(--surface-active)', 
+                          color: 'var(--brand)', 
+                          border: '1px solid var(--border-hover)', 
+                          borderRadius: '18px',
+                          minHeight: '48px',
+                        }}
+                      >
+                        发送
+                      </button>
+                    )}
+                  </div>
+                </form>
+              </div>
             </div>
           </div>
         </div>
