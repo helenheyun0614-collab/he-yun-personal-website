@@ -2,24 +2,93 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useLanguage } from '@/contexts/language-context'
+import { ChatSidebar } from './chat-sidebar'
+
+interface Message {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+interface Conversation {
+  id: string
+  title: string
+  messages: Message[]
+  createdAt: number
+}
 
 export function AIConsole() {
-  const [messages, setMessages] = useState<Array<{role: 'user' | 'assistant', content: string}>>([])
+  const [conversations, setConversations] = useState<Conversation[]>([])
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null)
   const [input, setInput] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
   const [streamingContent, setStreamingContent] = useState('')
-  const { language, t } = useLanguage()
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   
+  const { language, t } = useLanguage()
   const containerRef = useRef<HTMLDivElement>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
   const scrollRafRef = useRef<number | null>(null)
 
-  // 自动滚动
+  // 获取当前对话
+  const currentConversation = conversations.find(c => c.id === currentConversationId)
+  const messages = currentConversation?.messages || []
+
+  // 加载历史
+  useEffect(() => {
+    const stored = localStorage.getItem('chat-conversations')
+    if (stored) {
+      try {
+        const convs: Conversation[] = JSON.parse(stored)
+        setConversations(convs)
+        if (convs.length > 0) {
+          setCurrentConversationId(convs[0].id)
+        } else {
+          createNewConversation()
+        }
+      } catch (e) {
+        createNewConversation()
+      }
+    } else {
+      createNewConversation()
+    }
+  }, [])
+
+  // 保存到localStorage
+  useEffect(() => {
+    if (conversations.length > 0) {
+      localStorage.setItem('chat-conversations', JSON.stringify(conversations))
+    }
+  }, [conversations])
+
+  // 创建新对话
+  const createNewConversation = useCallback(() => {
+    const newConv: Conversation = {
+      id: `conv-${Date.now()}`,
+      title: language === 'zh' ? '新对话' : 'New conversation',
+      messages: [{
+        role: 'assistant',
+        content: t('chat.greeting')
+      }],
+      createdAt: Date.now()
+    }
+    setConversations(prev => [newConv, ...prev])
+    setCurrentConversationId(newConv.id)
+    setSidebarOpen(false)
+  }, [language, t])
+
+  // 切换对话
+  const selectConversation = useCallback((id: string) => {
+    setCurrentConversationId(id)
+    setStreamingContent('')
+    setIsStreaming(false)
+    setSidebarOpen(false)
+  }, [])
+
+  // 滚动
   const scrollToBottom = useCallback(() => {
     if (scrollRafRef.current) {
       cancelAnimationFrame(scrollRafRef.current)
     }
-    
     scrollRafRef.current = requestAnimationFrame(() => {
       if (containerRef.current) {
         containerRef.current.scrollTop = containerRef.current.scrollHeight
@@ -29,38 +98,12 @@ export function AIConsole() {
   }, [])
 
   useEffect(() => {
-    setMessages([
-      {
-        role: 'assistant',
-        content: t('chat.greeting')
-      }
-    ])
-    setTimeout(scrollToBottom, 100)
-  }, [language, t, scrollToBottom])
-
-  useEffect(() => {
-    if (streamingContent) {
-      scrollToBottom()
-    }
+    if (streamingContent) scrollToBottom()
   }, [streamingContent, scrollToBottom])
 
   useEffect(() => {
-    if (messages.length > 1) {
-      scrollToBottom()
-    }
+    if (messages.length > 1) scrollToBottom()
   }, [messages, scrollToBottom])
-
-  useEffect(() => {
-    return () => {
-      if (scrollRafRef.current) {
-        cancelAnimationFrame(scrollRafRef.current)
-      }
-    }
-  }, [])
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setInput(e.target.value)
-  }
 
   const stopStreaming = useCallback(() => {
     if (abortControllerRef.current) {
@@ -68,21 +111,32 @@ export function AIConsole() {
       abortControllerRef.current = null
     }
     
-    if (streamingContent) {
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: streamingContent
-      }])
+    if (streamingContent && currentConversationId) {
+      setConversations(prev => prev.map(c => 
+        c.id === currentConversationId 
+          ? { ...c, messages: [...c.messages, { role: 'assistant' as const, content: streamingContent }] }
+          : c
+      ))
     }
     
     setIsStreaming(false)
     setStreamingContent('')
-  }, [streamingContent])
+  }, [streamingContent, currentConversationId])
 
   const sendMessage = async (userMessage: string) => {
-    const newMessages = [...messages, { role: 'user' as const, content: userMessage }]
+    if (!currentConversationId) return
 
-    setMessages(newMessages)
+    // 更新对话标题（首次提问）
+    setConversations(prev => prev.map(c => 
+      c.id === currentConversationId 
+        ? { 
+            ...c, 
+            title: c.messages.length <= 1 ? userMessage.slice(0, 30) : c.title,
+            messages: [...c.messages, { role: 'user' as const, content: userMessage }]
+          }
+        : c
+    ))
+
     setInput('')
     setIsStreaming(true)
     setStreamingContent('')
@@ -90,20 +144,16 @@ export function AIConsole() {
     abortControllerRef.current = new AbortController()
 
     try {
+      const currentMessages = [...messages, { role: 'user' as const, content: userMessage }]
+      
       const response = await fetch('/api/chat', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          messages: newMessages
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: currentMessages }),
         signal: abortControllerRef.current.signal
       })
 
-      if (!response.ok) {
-        throw new Error('Failed to get response')
-      }
+      if (!response.ok) throw new Error('Failed')
 
       const reader = response.body?.getReader()
       const decoder = new TextDecoder()
@@ -112,7 +162,6 @@ export function AIConsole() {
       if (reader) {
         while (true) {
           const { done, value } = await reader.read()
-          
           if (done) break
 
           const chunk = decoder.decode(value, { stream: true })
@@ -121,13 +170,11 @@ export function AIConsole() {
           for (const line of lines) {
             if (line.startsWith('data: ')) {
               const data = line.slice(6)
-              
               if (data === '[DONE]') continue
 
               try {
                 const parsed = JSON.parse(data)
-                const content = parsed.content || ''
-                fullContent += content
+                fullContent += parsed.content || ''
                 setStreamingContent(fullContent)
               } catch (e) {}
             }
@@ -135,19 +182,21 @@ export function AIConsole() {
         }
       }
 
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: fullContent
-      }])
+      // 保存回复
+      setConversations(prev => prev.map(c => 
+        c.id === currentConversationId 
+          ? { ...c, messages: [...c.messages, { role: 'assistant' as const, content: fullContent }] }
+          : c
+      ))
       setStreamingContent('')
 
     } catch (error: any) {
       if (error.name !== 'AbortError') {
-        console.error('Chat error:', error)
-        setMessages(prev => [...prev, {
-          role: 'assistant',
-          content: t('chat.error')
-        }])
+        setConversations(prev => prev.map(c => 
+          c.id === currentConversationId 
+            ? { ...c, messages: [...c.messages, { role: 'assistant' as const, content: t('chat.error') }] }
+            : c
+        ))
       }
     } finally {
       setIsStreaming(false)
@@ -157,8 +206,6 @@ export function AIConsole() {
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault()
-    e.stopPropagation()
-
     if (!input.trim() || isStreaming) return
     await sendMessage(input.trim())
   }
@@ -190,204 +237,121 @@ export function AIConsole() {
   const suggestedQuestions = language === 'en' ? suggestedQuestionsEn : suggestedQuestionsZh
 
   return (
-    <section 
-      id="interact" 
-      className="section-padding relative z-10"
-      style={{ background: 'transparent' }}
-    >
-      <div className="container-max max-w-4xl">
-        <div className="mb-8">
-          <p 
-            className="mono-text text-xs mb-4"
-            style={{ color: 'var(--brand)' }}
-          >
+    <section id="interact" className="section-padding relative z-10" style={{ background: 'transparent' }}>
+      <div className="container-max">
+        <div className="mb-8 pl-12">
+          <p className="mono-text text-xs mb-4" style={{ color: 'var(--brand)' }}>
             INTERACT
           </p>
-          <h2 
-            className="editorial-heading text-3xl md:text-4xl"
-            style={{ color: 'var(--text-hero)' }}
-          >
+          <h2 className="editorial-heading text-3xl md:text-4xl" style={{ color: 'var(--text-hero)' }}>
             {t('chat.title')}
           </h2>
         </div>
 
-        {/* 极简聊天容器 */}
-        <div 
-          ref={containerRef}
-          className="glass-card p-6 max-h-[600px] overflow-y-auto overflow-x-hidden"
-          style={{ 
-            scrollbarWidth: 'thin',
-            overscrollBehavior: 'contain',
-          }}
-        >
-          {/* 消息列表 */}
-          <div className="space-y-4 mb-6">
-            {messages.map((message, index) => (
-              <div
-                key={index}
-                className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
-                <div
-                  className="max-w-[85%]"
-                  style={{
-                    padding: message.role === 'user' ? '12px 16px' : '0',
-                    background: message.role === 'user' 
-                      ? 'rgba(127, 231, 196, 0.1)' 
-                      : 'transparent',
-                    borderRadius: message.role === 'user' ? '16px' : '0',
-                    color: message.role === 'user' ? 'var(--brand)' : 'var(--text-main)',
-                  }}
-                >
-                  <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                    {message.content}
-                  </p>
-                </div>
-              </div>
-            ))}
+        <div className="flex">
+          {/* 侧边栏 */}
+          <ChatSidebar
+            currentConversationId={currentConversationId}
+            onSelectConversation={selectConversation}
+            onNewConversation={createNewConversation}
+            isOpen={sidebarOpen}
+            onToggle={() => setSidebarOpen(!sidebarOpen)}
+          />
 
-            {/* 流式输出 */}
-            {isStreaming && streamingContent && (
-              <div className="flex justify-start">
-                <div 
-                  className="max-w-[85%]"
-                  style={{ padding: 0 }}
-                >
-                  <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--text-main)' }}>
-                    {streamingContent}
-                    <span 
-                      className="inline-block w-0.5 h-4 ml-0.5"
-                      style={{ 
-                        background: 'var(--brand)',
-                        animation: 'blink 1s infinite',
-                        verticalAlign: 'middle'
+          {/* 主聊天区 */}
+          <div className="flex-1 min-w-0">
+            <div 
+              ref={containerRef}
+              className="glass-card p-6 max-h-[600px] overflow-y-auto overflow-x-hidden"
+              style={{ scrollbarWidth: 'thin' }}
+            >
+              <div className="space-y-4 mb-6">
+                {messages.map((message, index) => (
+                  <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    <div
+                      className="max-w-[85%]"
+                      style={{
+                        padding: message.role === 'user' ? '12px 16px' : '0',
+                        background: message.role === 'user' ? 'rgba(127, 231, 196, 0.1)' : 'transparent',
+                        borderRadius: message.role === 'user' ? '16px' : '0',
+                        color: message.role === 'user' ? 'var(--brand)' : 'var(--text-main)',
                       }}
-                    />
-                  </p>
-                </div>
+                    >
+                      <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
+                    </div>
+                  </div>
+                ))}
+
+                {isStreaming && streamingContent && (
+                  <div className="flex justify-start">
+                    <div className="max-w-[85%]">
+                      <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--text-main)' }}>
+                        {streamingContent}
+                        <span className="inline-block w-0.5 h-4 ml-0.5" style={{ background: 'var(--brand)', animation: 'blink 1s infinite' }} />
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {isStreaming && !streamingContent && (
+                  <div className="flex justify-start">
+                    <div className="flex gap-1 py-2">
+                      {[0, 1, 2].map(i => (
+                        <div key={i} className="w-1.5 h-1.5 rounded-full" 
+                          style={{ background: 'var(--brand)', opacity: 0.5, animation: 'pulse 1.5s ease-in-out infinite', animationDelay: `${i * 0.1}s` }} />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
 
-            {/* 等待指示器 */}
-            {isStreaming && !streamingContent && (
-              <div className="flex justify-start">
-                <div className="flex gap-1 py-2">
-                  <div 
-                    className="w-1.5 h-1.5 rounded-full"
-                    style={{ background: 'var(--brand)', opacity: 0.5, animation: 'pulse 1.5s ease-in-out infinite' }}
-                  />
-                  <div 
-                    className="w-1.5 h-1.5 rounded-full"
-                    style={{ background: 'var(--brand)', opacity: 0.5, animation: 'pulse 1.5s ease-in-out infinite', animationDelay: '0.1s' }}
-                  />
-                  <div 
-                    className="w-1.5 h-1.5 rounded-full"
-                    style={{ background: 'var(--brand)', opacity: 0.5, animation: 'pulse 1.5s ease-in-out infinite', animationDelay: '0.2s' }}
-                  />
-                </div>
+              <div className="flex flex-wrap gap-2 mb-4">
+                {suggestedQuestions.map((question, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    onClick={() => handleSuggestedQuestion(question)}
+                    disabled={isStreaming}
+                    className="px-3 py-1.5 text-xs transition-all duration-200 disabled:opacity-40 cursor-pointer"
+                    style={{ background: 'var(--surface)', border: '1px solid var(--border-color)', borderRadius: '12px', color: 'var(--text-secondary)' }}
+                  >
+                    {question}
+                  </button>
+                ))}
               </div>
-            )}
-          </div>
 
-          {/* 预设问题（在输入框上方） */}
-          <div className="flex flex-wrap gap-2 mb-4">
-            {suggestedQuestions.map((question, index) => (
-              <button
-                key={index}
-                type="button"
-                onClick={() => handleSuggestedQuestion(question)}
-                disabled={isStreaming}
-                className="px-3 py-1.5 text-xs transition-all duration-200 disabled:opacity-40 cursor-pointer"
-                style={{
-                  background: 'var(--surface)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '12px',
-                  color: 'var(--text-secondary)',
-                }}
-                onMouseEnter={(e) => {
-                  if (!isStreaming) {
-                    e.currentTarget.style.borderColor = 'var(--border-hover)'
-                    e.currentTarget.style.color = 'var(--brand)'
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--border-color)'
-                  e.currentTarget.style.color = 'var(--text-secondary)'
-                }}
-              >
-                {question}
-              </button>
-            ))}
-          </div>
-
-          {/* 输入框（跟随内容） */}
-          <form onSubmit={handleSend}>
-            <div className="flex gap-3">
-              <input
-                type="text"
-                value={input}
-                onChange={handleInputChange}
-                placeholder={isStreaming ? 'Response in progress...' : t('chat.placeholder')}
-                disabled={isStreaming}
-                className="flex-1 px-4 py-3 text-sm focus:outline-none disabled:opacity-50"
-                style={{
-                  background: 'var(--surface)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '16px',
-                  color: 'var(--text-main)',
-                }}
-                onFocus={(e) => {
-                  if (!isStreaming) {
-                    e.currentTarget.style.borderColor = 'var(--border-hover)'
-                  }
-                }}
-                onBlur={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--border-color)'
-                }}
-              />
-              
-              {isStreaming ? (
-                <button
-                  type="button"
-                  onClick={stopStreaming}
-                  className="px-5 py-3 text-sm font-medium transition-all duration-200 flex items-center gap-2 cursor-pointer"
-                  style={{
-                    background: 'rgba(239, 68, 68, 0.1)',
-                    color: '#ef4444',
-                    border: '1px solid rgba(239, 68, 68, 0.3)',
-                    borderRadius: '16px',
-                  }}
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <rect x="6" y="6" width="12" height="12" rx="1" fill="currentColor" />
-                  </svg>
-                  Stop
-                </button>
-              ) : (
-                <button
-                  type="submit"
-                  disabled={!input.trim()}
-                  className="px-5 py-3 text-sm font-medium transition-all duration-200 disabled:opacity-50 cursor-pointer"
-                  style={{
-                    background: 'var(--surface-active)',
-                    color: 'var(--brand)',
-                    border: '1px solid var(--border-hover)',
-                    borderRadius: '16px',
-                  }}
-                >
-                  {t('chat.send')}
-                </button>
-              )}
+              <form onSubmit={handleSend}>
+                <div className="flex gap-3">
+                  <input
+                    type="text"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder={isStreaming ? 'Response in progress...' : t('chat.placeholder')}
+                    disabled={isStreaming}
+                    className="flex-1 px-4 py-3 text-sm focus:outline-none disabled:opacity-50"
+                    style={{ background: 'var(--surface)', border: '1px solid var(--border-color)', borderRadius: '16px', color: 'var(--text-main)' }}
+                  />
+                  
+                  {isStreaming ? (
+                    <button type="button" onClick={stopStreaming} className="px-5 py-3 text-sm font-medium flex items-center gap-2 cursor-pointer"
+                      style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '16px' }}>
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1" fill="currentColor" /></svg>
+                      Stop
+                    </button>
+                  ) : (
+                    <button type="submit" disabled={!input.trim()} className="px-5 py-3 text-sm font-medium disabled:opacity-50 cursor-pointer"
+                      style={{ background: 'var(--surface-active)', color: 'var(--brand)', border: '1px solid var(--border-hover)', borderRadius: '16px' }}>
+                      {t('chat.send')}
+                    </button>
+                  )}
+                </div>
+              </form>
             </div>
-          </form>
+          </div>
         </div>
       </div>
 
-      <style jsx global>{`
-        @keyframes blink {
-          0%, 50% { opacity: 1; }
-          51%, 100% { opacity: 0; }
-        }
-      `}</style>
+      <style jsx global>{`@keyframes blink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0; } }`}</style>
     </section>
   )
 }
