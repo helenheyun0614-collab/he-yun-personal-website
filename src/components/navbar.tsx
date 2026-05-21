@@ -164,17 +164,27 @@ export function Navbar() {
                 </div>
               </div>
 
+              {/* 语言切换 - 更明显的样式 */}
               <div className="p-5 border-t" style={{ borderColor: 'var(--border-color)' }}>
-                <button
-                  onClick={() => {
-                    setLanguage(language === 'en' ? 'zh' : 'en')
-                    setIsMenuOpen(false)
-                  }}
-                  className="w-full py-3 px-4 text-sm rounded-lg transition-colors"
-                  style={{ background: 'var(--surface)', border: '1px solid var(--border-color)', color: 'var(--text-secondary)', minHeight: '48px' }}
-                >
-                  {language === 'en' ? '切换至中文' : 'Switch to English'}
-                </button>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+                    {language === 'en' ? 'Language' : '语言'}
+                  </span>
+                  <button
+                    onClick={() => {
+                      setLanguage(language === 'en' ? 'zh' : 'en')
+                      setIsMenuOpen(false)
+                    }}
+                    className="px-4 py-2 text-sm font-medium rounded-lg transition-colors"
+                    style={{ 
+                      background: 'var(--brand)', 
+                      color: 'var(--background)',
+                      minHeight: '44px',
+                    }}
+                  >
+                    {language === 'en' ? '中文' : 'English'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>

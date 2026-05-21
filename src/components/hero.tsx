@@ -33,17 +33,17 @@ export function Hero() {
   const content = {
     zh: {
       name: 'Helen Heyun',
-      tagline: '构建AGI研究生态',
-      roles: '研究者 · 连接者',
-      rolesSub: '在实验室与未来人才之间',
+      tagline: '为 AGI 时代构建研究生态系统',
+      roles: '运营者 · 观察者 · 连接者',
+      rolesSub: '连接前沿实验室与未来人才',
       focusTitle: '当前关注',
-      focusItems: ['AGI基础设施', '研究生态', '自我进化']
+      focusItems: ['AGI 基础设施', '研究生态系统', '自我进化']
     },
     en: {
       name: 'Helen Heyun',
-      tagline: 'Building AGI Research Ecosystems',
-      roles: 'Researcher · Connector',
-      rolesSub: 'Between frontier labs and future talent',
+      tagline: 'Building research ecosystems for the AGI era',
+      roles: 'Operator · Observer · Connector',
+      rolesSub: 'between frontier labs and future talent',
       focusTitle: 'Current Focus',
       focusItems: ['AGI infrastructure', 'Research ecosystems', 'Self-evolution']
     }
@@ -98,7 +98,7 @@ export function Hero() {
                   </h1>
                 </div>
 
-                {/* 标语 - 更短更简洁 */}
+                {/* 标语 */}
                 <div>
                   <p 
                     className="font-light leading-relaxed"
@@ -111,7 +111,7 @@ export function Hero() {
                   </p>
                 </div>
 
-                {/* 角色定位 - 更AI-native */}
+                {/* 角色定位 */}
                 <div className="space-y-2">
                   <p 
                     className="font-light tracking-wide"
@@ -135,7 +135,7 @@ export function Hero() {
                 {/* Current Focus */}
                 <div 
                   className="glass-card p-5 md:p-6 mt-6 md:mt-8"
-                  style={{ maxWidth: '380px' }}
+                  style={{ maxWidth: '400px' }}
                 >
                   <p 
                     className="mono-text text-xs mb-3 md:mb-4"
