@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Image from 'next/image'
 import { useLanguage } from '@/contexts/language-context'
 
@@ -120,23 +120,35 @@ export function JourneyTimeline() {
 
   const storyMoments = language === 'en' ? storyMomentsEn : storyMomentsZh
 
+  const nextSlide = useCallback(() => {
+    setCurrentIndex((prev) => (prev + 1) % storyMoments.length)
+  }, [storyMoments.length])
+
+  const prevSlide = useCallback(() => {
+    setCurrentIndex((prev) => (prev - 1 + storyMoments.length) % storyMoments.length)
+  }, [storyMoments.length])
+
+  // 自动播放
   useEffect(() => {
     if (!isPlaying) return
 
-    const timer = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % storyMoments.length)
-    }, 5000)
-
+    const timer = setInterval(nextSlide, 5000)
     return () => clearInterval(timer)
-  }, [isPlaying, currentIndex])
+  }, [isPlaying, nextSlide])
 
-  const nextSlide = () => {
-    setCurrentIndex((prev) => (prev + 1) % storyMoments.length)
-  }
+  // 键盘支持
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') {
+        prevSlide()
+      } else if (e.key === 'ArrowRight') {
+        nextSlide()
+      }
+    }
 
-  const prevSlide = () => {
-    setCurrentIndex((prev) => (prev - 1 + storyMoments.length) % storyMoments.length)
-  }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [nextSlide, prevSlide])
 
   const getSlideStyle = (index: number) => {
     const diff = (index - currentIndex + storyMoments.length) % storyMoments.length
@@ -207,7 +219,7 @@ export function JourneyTimeline() {
               return (
                 <div
                   key={moment.id}
-                  className="absolute transition-all duration-700 ease-out"
+                  className="absolute transition-all duration-700 ease-in-out"
                   style={style}
                 >
                   {isVisible && (
@@ -226,7 +238,7 @@ export function JourneyTimeline() {
                         alt={moment.year}
                         fill
                         className="object-cover"
-                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, (max-width: 640px) 100vw, (max-width: 750px) 100vw, (max-width: 1080px) 100vw"
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw"
                         priority
                       />
 
@@ -261,48 +273,53 @@ export function JourneyTimeline() {
             })}
           </div>
 
+          {/* 左箭头 - Chevron Left */}
           <button
             onClick={prevSlide}
-            className="absolute left-2 md:left-8 lg:left-12 top-1/2 -translate-y-1/2 w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center transition-all duration-300 backdrop-blur-sm z-10 group"
+            className="absolute left-4 md:left-12 lg:left-20 top-1/2 -translate-y-1/2 w-12 h-12 md:w-14 md:h-14 flex items-center justify-center transition-all duration-300 z-10 group"
             style={{
-              background: 'rgba(11, 15, 20, 0.6)',
-              border: '1px solid var(--border-color)',
+              background: 'rgba(11, 15, 20, 0.4)',
+              backdropFilter: 'blur(8px)',
+              borderRadius: '50%',
             }}
+            aria-label="Previous"
           >
             <svg 
-              className="w-5 h-5 md:w-6 md:h-6 transition-transform duration-300"
-              style={{ color: 'var(--text-main)' }}
-              fill="none" viewBox="0 0 24 24" stroke="currentColor"
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateX(-4px)'
-                e.currentTarget.style.color = 'var(--brand)'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateX(0)'
-                e.currentTarget.style.color = 'var(--text-main)'
-              }}
+              className="w-6 h-6 md:w-7 md:h-7 transition-all duration-300 group-hover:scale-110"
+              style={{ color: 'var(--text-main)', opacity: 0.7 }}
+              fill="none" 
+              viewBox="0 0 24 24" 
+              stroke="currentColor"
+              strokeWidth={1.5}
             >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 19l-7-7" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
             </svg>
           </button>
 
+          {/* 右箭头 - Chevron Right */}
           <button
             onClick={nextSlide}
-            className="absolute right-2 md:right-8 lg:right-12 top-1/2 -translate-y-1/2 w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center transition-all duration-300 backdrop-blur-sm z-10 group"
+            className="absolute right-4 md:right-12 lg:right-20 top-1/2 -translate-y-1/2 w-12 h-12 md:w-14 md:h-14 flex items-center justify-center transition-all duration-300 z-10 group"
             style={{
-              background: 'rgba(11, 15, 20, 0.6)',
-              border: '1px solid var(--border-color)',
+              background: 'rgba(11, 15, 20, 0.4)',
+              backdropFilter: 'blur(8px)',
+              borderRadius: '50%',
             }}
+            aria-label="Next"
           >
             <svg 
-              className="w-5 h-5 md:w-6 md:h-6 transition-transform duration-300"
-              style={{ color: 'var(--text-main)' }}
-              fill="none" viewBox="0 0 24 24" stroke="currentColor"
+              className="w-6 h-6 md:w-7 md:h-7 transition-all duration-300 group-hover:scale-110"
+              style={{ color: 'var(--text-main)', opacity: 0.7 }}
+              fill="none" 
+              viewBox="0 0 24 24" 
+              stroke="currentColor"
+              strokeWidth={1.5}
             >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5l7 5" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
             </svg>
           </button>
 
+          {/* 进度点 */}
           <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex gap-1.5 z-10">
             {storyMoments.map((_, index) => (
               <button

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 
 const GLM_API_KEY = process.env.GLM_API_KEY || 'your-glm-api-key-here'
 const GLM_API_URL = 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
@@ -9,9 +9,9 @@ export async function POST(request: NextRequest) {
     const { messages } = body
 
     if (!messages || !Array.isArray(messages)) {
-      return NextResponse.json(
-        { error: 'Invalid messages format' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'Invalid messages format' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -79,6 +79,7 @@ When users ask for searches or current information, use web search tools natural
                        lastUserMessage.includes('最新') || lastUserMessage.includes('news') ||
                        lastUserMessage.includes('现在') || lastUserMessage.includes('current')
 
+    // 使用流式输出
     const response = await fetch(GLM_API_URL, {
       method: 'POST',
       headers: {
@@ -90,7 +91,7 @@ When users ask for searches or current information, use web search tools natural
         messages: allMessages,
         temperature: 0.7,
         max_tokens: 2000,
-        stream: false,
+        stream: true,  // 启用流式输出
         tools: needsSearch ? [{
           type: 'web_search',
           web_search: {
@@ -104,27 +105,81 @@ When users ask for searches or current information, use web search tools natural
     if (!response.ok) {
       const errorData = await response.json()
       console.error('GLM API Error:', errorData)
-      return NextResponse.json(
-        { error: 'Failed to get response from GLM API' },
-        { status: response.status }
+      return new Response(
+        JSON.stringify({ error: 'Failed to get response from GLM API' }),
+        { status: response.status, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
-    const data = await response.json()
-    const assistantMessage = data.choices[0]?.message?.content || 'Not sure what you mean.'
+    // 返回流式响应
+    const encoder = new TextEncoder()
+    const reader = response.body?.getReader()
 
-    return NextResponse.json({
-      message: {
-        role: 'assistant',
-        content: assistantMessage
+    if (!reader) {
+      return new Response(
+        JSON.stringify({ error: 'Failed to get response stream' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const stream = new ReadableStream({
+      async start(controller) {
+        const decoder = new TextDecoder()
+        
+        try {
+          while (true) {
+            const { done, value } = await reader.read()
+            
+            if (done) {
+              controller.close()
+              break
+            }
+
+            const chunk = decoder.decode(value, { stream: true })
+            const lines = chunk.split('\n')
+
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                const data = line.slice(6)
+                
+                if (data === '[DONE]') {
+                  controller.enqueue(encoder.encode('data: [DONE]\n\n'))
+                  continue
+                }
+
+                try {
+                  const parsed = JSON.parse(data)
+                  const content = parsed.choices?.[0]?.delta?.content || ''
+                  
+                  if (content) {
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`))
+                  }
+                } catch (e) {
+                  // 跳过解析错误的行
+                }
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Stream error:', error)
+          controller.error(error)
+        }
+      }
+    })
+
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
       }
     })
 
   } catch (error) {
     console.error('Chat API Error:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+    return new Response(
+      JSON.stringify({ error: 'Internal server error' }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
     )
   }
 }

@@ -1,14 +1,40 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useLanguage } from '@/contexts/language-context'
 
 export function AIConsole() {
   const [messages, setMessages] = useState<Array<{role: 'user' | 'assistant', content: string}>>([])
   const [input, setInput] = useState('')
-  const [isTyping, setIsTyping] = useState(false)
+  const [isStreaming, setIsStreaming] = useState(false)
+  const [streamingContent, setStreamingContent] = useState('')
   const { language, t } = useLanguage()
+  
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
+  const shouldAutoScrollRef = useRef(true)
 
+  // 自动滚动到底部
+  const scrollToBottom = (smooth: boolean = true) => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ 
+        behavior: smooth ? 'smooth' : 'auto',
+        block: 'end' 
+      })
+    }
+  }
+
+  // 检测用户是否在查看历史消息
+  const handleScroll = () => {
+    if (messagesContainerRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current
+      const isAtBottom = scrollHeight - scrollTop - clientHeight < 50
+      shouldAutoScrollRef.current = isAtBottom
+    }
+  }
+
+  // 初始问候
   useEffect(() => {
     setMessages([
       {
@@ -18,22 +44,46 @@ export function AIConsole() {
     ])
   }, [language])
 
+  // 流式输出时自动滚动
+  useEffect(() => {
+    if (streamingContent && shouldAutoScrollRef.current) {
+      scrollToBottom()
+    }
+  }, [streamingContent])
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInput(e.target.value)
   }
 
-  const handleSend = async (e: React.FormEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
+  const stopStreaming = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
+    }
+    
+    // 保留当前已生成的内容
+    if (streamingContent) {
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: streamingContent
+      }])
+    }
+    
+    setIsStreaming(false)
+    setStreamingContent('')
+  }
 
-    if (!input.trim() || isTyping) return
-
-    const userMessage = input.trim()
+  const sendMessage = async (userMessage: string) => {
     const newMessages = [...messages, { role: 'user' as const, content: userMessage }]
 
     setMessages(newMessages)
     setInput('')
-    setIsTyping(true)
+    setIsStreaming(true)
+    setStreamingContent('')
+    shouldAutoScrollRef.current = true
+
+    // 创建 AbortController
+    abortControllerRef.current = new AbortController()
 
     try {
       const response = await fetch('/api/chat', {
@@ -43,70 +93,82 @@ export function AIConsole() {
         },
         body: JSON.stringify({
           messages: newMessages
-        })
+        }),
+        signal: abortControllerRef.current.signal
       })
 
       if (!response.ok) {
         throw new Error('Failed to get response')
       }
 
-      const data = await response.json()
+      // 处理流式响应
+      const reader = response.body?.getReader()
+      const decoder = new TextDecoder()
+      let fullContent = ''
 
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: data.message.content
-      }])
-    } catch (error) {
-      console.error('Chat error:', error)
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: t('chat.error')
-      }])
-    } finally {
-      setIsTyping(false)
-    }
-  }
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read()
+          
+          if (done) break
 
-  const handleSuggestedQuestion = (question: string) => {
-    setInput(question)
-    setTimeout(async () => {
-      const newMessages = [...messages, { role: 'user' as const, content: question }]
+          const chunk = decoder.decode(value, { stream: true })
+          const lines = chunk.split('\n')
 
-      setMessages(newMessages)
-      setInput('')
-      setIsTyping(true)
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6)
+              
+              if (data === '[DONE]') continue
 
-      try {
-        const response = await fetch('/api/chat', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            messages: newMessages
-          })
-        })
-
-        if (!response.ok) {
-          throw new Error('Failed to get response')
+              try {
+                const parsed = JSON.parse(data)
+                const content = parsed.content || ''
+                fullContent += content
+                setStreamingContent(fullContent)
+              } catch (e) {
+                // 跳过解析错误
+              }
+            }
+          }
         }
+      }
 
-        const data = await response.json()
+      // 完成
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: fullContent
+      }])
+      setStreamingContent('')
 
-        setMessages(prev => [...prev, {
-          role: 'assistant',
-          content: data.message.content
-        }])
-      } catch (error) {
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        // 用户中止，已在上面的 stopStreaming 处理
+      } else {
         console.error('Chat error:', error)
         setMessages(prev => [...prev, {
           role: 'assistant',
           content: t('chat.error')
         }])
-      } finally {
-        setIsTyping(false)
       }
-    }, 300)
+    } finally {
+      setIsStreaming(false)
+      abortControllerRef.current = null
+    }
+  }
+
+  const handleSend = async (e: React.FormEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    if (!input.trim() || isStreaming) return
+    await sendMessage(input.trim())
+  }
+
+  const handleSuggestedQuestion = async (question: string) => {
+    if (isStreaming) return
+    scrollToBottom()
+    await sendMessage(question)
   }
 
   const suggestedQuestionsEn = [
@@ -154,7 +216,15 @@ export function AIConsole() {
         {/* 聊天界面 */}
         <div className="glass-card relative z-20">
           {/* 消息区域 */}
-          <div className="p-6 space-y-6 min-h-[300px] max-h-[500px] overflow-y-auto custom-scrollbar">
+          <div 
+            ref={messagesContainerRef}
+            onScroll={handleScroll}
+            className="p-6 space-y-6 min-h-[300px] max-h-[500px] overflow-y-auto overflow-x-hidden"
+            style={{ 
+              scrollBehavior: 'smooth',
+              scrollbarWidth: 'thin',
+            }}
+          >
             {messages.map((message, index) => (
               <div
                 key={index}
@@ -178,7 +248,35 @@ export function AIConsole() {
               </div>
             ))}
 
-            {isTyping && (
+            {/* 流式输出内容 */}
+            {isStreaming && streamingContent && (
+              <div className="flex justify-start">
+                <div
+                  className="max-w-[80%] p-4"
+                  style={{
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-main)',
+                    borderRadius: 'var(--border-radius)',
+                  }}
+                >
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                    {streamingContent}
+                    <span 
+                      className="inline-block w-0.5 h-4 ml-0.5"
+                      style={{ 
+                        background: 'var(--brand)',
+                        animation: 'blink 1s infinite',
+                        verticalAlign: 'middle'
+                      }}
+                    />
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* 等待响应指示器 */}
+            {isStreaming && !streamingContent && (
               <div className="flex justify-start">
                 <div 
                   className="p-4"
@@ -204,6 +302,9 @@ export function AIConsole() {
                 </div>
               </div>
             )}
+
+            {/* 滚动锚点 */}
+            <div ref={messagesEndRef} style={{ height: '1px' }} />
           </div>
 
           {/* 输入区域 */}
@@ -217,8 +318,9 @@ export function AIConsole() {
                 type="text"
                 value={input}
                 onChange={handleInputChange}
-                placeholder={t('chat.placeholder')}
-                className="flex-1 px-4 py-3 text-sm focus:outline-none transition-colors"
+                placeholder={isStreaming ? 'Response in progress...' : t('chat.placeholder')}
+                disabled={isStreaming}
+                className="flex-1 px-4 py-3 text-sm focus:outline-none transition-colors disabled:opacity-50"
                 style={{
                   background: 'var(--background)',
                   border: '1px solid var(--border-color)',
@@ -226,25 +328,48 @@ export function AIConsole() {
                   color: 'var(--text-main)',
                 }}
                 onFocus={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--border-hover)'
+                  if (!isStreaming) {
+                    e.currentTarget.style.borderColor = 'var(--border-hover)'
+                  }
                 }}
                 onBlur={(e) => {
                   e.currentTarget.style.borderColor = 'var(--border-color)'
                 }}
               />
-              <button
-                type="submit"
-                disabled={!input.trim() || isTyping}
-                className="px-6 py-3 text-sm font-medium transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{
-                  background: 'var(--surface-active)',
-                  color: 'var(--brand)',
-                  border: '1px solid var(--border-hover)',
-                  borderRadius: 'var(--border-radius)',
-                }}
-              >
-                {t('chat.send')}
-              </button>
+              
+              {/* Stop按钮或Send按钮 */}
+              {isStreaming ? (
+                <button
+                  type="button"
+                  onClick={stopStreaming}
+                  className="px-6 py-3 text-sm font-medium transition-all duration-300 flex items-center gap-2"
+                  style={{
+                    background: 'rgba(239, 68, 68, 0.1)',
+                    color: '#ef4444',
+                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                    borderRadius: 'var(--border-radius)',
+                  }}
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <rect x="6" y="6" width="12" height="12" rx="1" fill="currentColor" />
+                  </svg>
+                  Stop
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={!input.trim()}
+                  className="px-6 py-3 text-sm font-medium transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{
+                    background: 'var(--surface-active)',
+                    color: 'var(--brand)',
+                    border: '1px solid var(--border-hover)',
+                    borderRadius: 'var(--border-radius)',
+                  }}
+                >
+                  {t('chat.send')}
+                </button>
+              )}
             </div>
           </form>
         </div>
@@ -263,16 +388,20 @@ export function AIConsole() {
                 key={index}
                 type="button"
                 onClick={() => handleSuggestedQuestion(question)}
-                className="px-3 py-1.5 text-xs transition-all duration-300 cursor-pointer"
+                disabled={isStreaming}
+                className="px-3 py-1.5 text-xs transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed"
                 style={{
                   background: 'var(--surface)',
                   border: '1px solid var(--border-color)',
                   borderRadius: 'var(--border-radius)',
                   color: 'var(--text-secondary)',
                 }}
+                title={isStreaming ? 'Current response in progress' : ''}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--border-hover)'
-                  e.currentTarget.style.color = 'var(--brand)'
+                  if (!isStreaming) {
+                    e.currentTarget.style.borderColor = 'var(--border-hover)'
+                    e.currentTarget.style.color = 'var(--brand)'
+                  }
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.borderColor = 'var(--border-color)'
@@ -285,6 +414,14 @@ export function AIConsole() {
           </div>
         </div>
       </div>
+
+      {/* CSS动画 */}
+      <style jsx global>{`
+        @keyframes blink {
+          0%, 50% { opacity: 1; }
+          51%, 100% { opacity: 0; }
+        }
+      `}</style>
     </section>
   )
 }
