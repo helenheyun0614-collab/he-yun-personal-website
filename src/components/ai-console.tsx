@@ -22,7 +22,7 @@ export function AIConsole() {
   const [input, setInput] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
   const [streamingContent, setStreamingContent] = useState('')
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(true)
   
   const { language, t } = useLanguage()
   const containerRef = useRef<HTMLDivElement>(null)
