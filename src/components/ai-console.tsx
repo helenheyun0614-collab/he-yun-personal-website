@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useLanguage } from '@/contexts/language-context'
 
 export function AIConsole() {
@@ -13,35 +13,38 @@ export function AIConsole() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
-  const shouldAutoScrollRef = useRef(true)
+  const userScrolledUpRef = useRef(false)
+  const lastScrollHeightRef = useRef(0)
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  // 自动滚动到底部 - 使用直接设置 scrollTop
-  const scrollToBottom = useCallback((smooth: boolean = true) => {
-    if (messagesContainerRef.current) {
-      const container = messagesContainerRef.current
-      const scrollHeight = container.scrollHeight
-      
-      if (smooth) {
-        // 平滑滚动
-        container.scrollTo({
-          top: scrollHeight,
-          behavior: 'smooth'
-        })
-      } else {
-        // 立即滚动
-        container.scrollTop = scrollHeight
-      }
+  // 智能滚动到底部
+  const scrollToBottom = (force: boolean = false) => {
+    if (userScrolledUpRef.current && !force) return
+    
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ 
+        behavior: 'auto', // 使用 auto 避免累积动画
+        block: 'end',
+        inline: 'nearest'
+      })
     }
-  }, [])
+  }
 
-  // 检测用户是否在查看历史消息
-  const handleScroll = useCallback(() => {
-    if (messagesContainerRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current
-      const isAtBottom = scrollHeight - scrollTop - clientHeight < 80
-      shouldAutoScrollRef.current = isAtBottom
-    }
-  }, [])
+  // 检测用户是否向上滚动查看历史
+  const handleScroll = () => {
+    if (!messagesContainerRef.current) return
+    
+    const container = messagesContainerRef.current
+    const { scrollTop, scrollHeight, clientHeight } = container
+    
+    // 判断是否在底部（允许 100px 误差）
+    const isAtBottom = scrollHeight - scrollTop - clientHeight < 100
+    
+    // 如果用户向上滚动超过 150px，标记为查看历史
+    userScrolledUpRef.current = !isAtBottom && (scrollHeight - scrollTop - clientHeight > 150)
+    
+    lastScrollHeightRef.current = scrollHeight
+  }
 
   // 初始问候
   useEffect(() => {
@@ -51,24 +54,39 @@ export function AIConsole() {
         content: t('chat.greeting')
       }
     ])
+    // 初始滚动到底部
+    setTimeout(() => scrollToBottom(true), 100)
   }, [language, t])
 
-  // 流式输出时自动滚动
+  // 流式输出时智能滚动（节流）
   useEffect(() => {
-    if (streamingContent && shouldAutoScrollRef.current) {
-      // 使用 requestAnimationFrame 确保在 DOM 更新后滚动
-      requestAnimationFrame(() => {
-        scrollToBottom(false) // 流式输出时用即时滚动，避免卡顿
-      })
+    if (!streamingContent) return
+    
+    // 清除之前的定时器
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current)
     }
-  }, [streamingContent, scrollToBottom])
+    
+    // 节流：每 200ms 最多滚动一次
+    scrollTimeoutRef.current = setTimeout(() => {
+      if (!userScrolledUpRef.current) {
+        scrollToBottom()
+      }
+    }, 200)
+    
+    return () => {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current)
+      }
+    }
+  }, [streamingContent])
 
-  // 新消息添加后滚动
+  // 新消息添加后强制滚动
   useEffect(() => {
-    requestAnimationFrame(() => {
+    if (messages.length > 1) {
       scrollToBottom(true)
-    })
-  }, [messages, scrollToBottom])
+    }
+  }, [messages])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInput(e.target.value)
@@ -99,7 +117,7 @@ export function AIConsole() {
     setInput('')
     setIsStreaming(true)
     setStreamingContent('')
-    shouldAutoScrollRef.current = true
+    userScrolledUpRef.current = false // 重置滚动状态
 
     // 创建 AbortController
     abortControllerRef.current = new AbortController()
@@ -162,7 +180,7 @@ export function AIConsole() {
 
     } catch (error: any) {
       if (error.name === 'AbortError') {
-        // 用户中止，已在上面的 stopStreaming 处理
+        // 用户中止
       } else {
         console.error('Chat error:', error)
         setMessages(prev => [...prev, {
@@ -187,9 +205,8 @@ export function AIConsole() {
   const handleSuggestedQuestion = async (question: string) => {
     if (isStreaming) return
     
-    // 立即滚动到底部
-    shouldAutoScrollRef.current = true
-    scrollToBottom(false)
+    // 重置滚动状态并强制滚动
+    userScrolledUpRef.current = false
     
     await sendMessage(question)
   }
@@ -244,7 +261,6 @@ export function AIConsole() {
             onScroll={handleScroll}
             className="p-6 space-y-6 min-h-[300px] max-h-[500px] overflow-y-auto overflow-x-hidden"
             style={{ 
-              scrollBehavior: 'smooth',
               scrollbarWidth: 'thin',
               overscrollBehavior: 'contain',
             }}
@@ -328,7 +344,7 @@ export function AIConsole() {
             )}
 
             {/* 滚动锚点 */}
-            <div ref={messagesEndRef} style={{ height: '1px' }} />
+            <div ref={messagesEndRef} style={{ height: '1px', float: 'left', clear: 'both' }} />
           </div>
 
           {/* 输入区域 */}
