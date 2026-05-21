@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useLanguage } from '@/contexts/language-context'
 
 export function AIConsole() {
@@ -12,14 +12,24 @@ export function AIConsole() {
   
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
+  const scrollRafRef = useRef<number | null>(null)
 
-  // 强制滚动到底部
-  const scrollToBottomImmediate = () => {
-    if (messagesContainerRef.current) {
-      const container = messagesContainerRef.current
-      container.scrollTop = container.scrollHeight
+  // 防抖滚动 - 降低频率但不阻塞 UI
+  const scrollToBottom = useCallback(() => {
+    // 取消之前的滚动请求
+    if (scrollRafRef.current) {
+      cancelAnimationFrame(scrollRafRef.current)
     }
-  }
+    
+    // 使用 requestAnimationFrame 批量处理
+    scrollRafRef.current = requestAnimationFrame(() => {
+      if (messagesContainerRef.current) {
+        const container = messagesContainerRef.current
+        container.scrollTop = container.scrollHeight
+      }
+      scrollRafRef.current = null
+    })
+  }, [])
 
   // 初始问候
   useEffect(() => {
@@ -29,29 +39,37 @@ export function AIConsole() {
         content: t('chat.greeting')
       }
     ])
-    setTimeout(scrollToBottomImmediate, 100)
-  }, [language, t])
+    setTimeout(scrollToBottom, 100)
+  }, [language, t, scrollToBottom])
 
-  // 流式输出时强制跟随底部（每次更新都滚动）
+  // 流式输出时滚动（已由防抖处理）
   useEffect(() => {
     if (streamingContent) {
-      // 使用 requestAnimationFrame 确保 DOM 已更新
-      requestAnimationFrame(scrollToBottomImmediate)
+      scrollToBottom()
     }
-  }, [streamingContent])
+  }, [streamingContent, scrollToBottom])
 
   // 新消息添加后滚动
   useEffect(() => {
     if (messages.length > 1) {
-      requestAnimationFrame(scrollToBottomImmediate)
+      scrollToBottom()
     }
-  }, [messages])
+  }, [messages, scrollToBottom])
+
+  // 清理
+  useEffect(() => {
+    return () => {
+      if (scrollRafRef.current) {
+        cancelAnimationFrame(scrollRafRef.current)
+      }
+    }
+  }, [])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInput(e.target.value)
   }
 
-  const stopStreaming = () => {
+  const stopStreaming = useCallback(() => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort()
       abortControllerRef.current = null
@@ -66,7 +84,7 @@ export function AIConsole() {
     
     setIsStreaming(false)
     setStreamingContent('')
-  }
+  }, [streamingContent])
 
   const sendMessage = async (userMessage: string) => {
     const newMessages = [...messages, { role: 'user' as const, content: userMessage }]
@@ -154,7 +172,7 @@ export function AIConsole() {
 
   const handleSuggestedQuestion = async (question: string) => {
     if (isStreaming) return
-    scrollToBottomImmediate()
+    scrollToBottom()
     await sendMessage(question)
   }
 
@@ -319,7 +337,7 @@ export function AIConsole() {
                 <button
                   type="button"
                   onClick={stopStreaming}
-                  className="px-6 py-3 text-sm font-medium transition-all duration-300 flex items-center gap-2"
+                  className="px-6 py-3 text-sm font-medium transition-all duration-300 flex items-center gap-2 cursor-pointer hover:opacity-80"
                   style={{
                     background: 'rgba(239, 68, 68, 0.1)',
                     color: '#ef4444',
@@ -336,7 +354,7 @@ export function AIConsole() {
                 <button
                   type="submit"
                   disabled={!input.trim()}
-                  className="px-6 py-3 text-sm font-medium transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-6 py-3 text-sm font-medium transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                   style={{
                     background: 'var(--surface-active)',
                     color: 'var(--brand)',
@@ -365,7 +383,7 @@ export function AIConsole() {
                 type="button"
                 onClick={() => handleSuggestedQuestion(question)}
                 disabled={isStreaming}
-                className="px-3 py-1.5 text-xs transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="px-3 py-1.5 text-xs transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                 style={{
                   background: 'var(--surface)',
                   border: '1px solid var(--border-color)',
