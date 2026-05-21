@@ -49,6 +49,7 @@ export function Navbar() {
       >
         <div className="px-5 md:px-12 py-4">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
+            {/* 左侧：Logo */}
             <div className="flex items-center gap-2">
               <div 
                 className="w-2 h-2 rounded-full animate-pulse"
@@ -68,49 +69,52 @@ export function Navbar() {
               </span>
             </div>
 
-            {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center gap-8">
-              {navItems.map((item) => (
-                <a
-                  key={item.key}
-                  href={item.href}
-                  className="mono-text text-xs transition-colors duration-300"
-                  style={{ color: 'var(--text-tertiary)' }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.color = 'var(--brand)'
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.color = 'var(--text-tertiary)'
+            {/* 右侧：导航 */}
+            <div className="flex items-center gap-4">
+              {/* Desktop Navigation */}
+              <div className="hidden md:flex items-center gap-8">
+                {navItems.map((item) => (
+                  <a
+                    key={item.key}
+                    href={item.href}
+                    className="mono-text text-xs transition-colors duration-300"
+                    style={{ color: 'var(--text-tertiary)' }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.color = 'var(--brand)'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.color = 'var(--text-tertiary)'
+                    }}
+                  >
+                    {t(item.key)}
+                  </a>
+                ))}
+
+                <button
+                  onClick={() => setLanguage(language === 'en' ? 'zh' : 'en')}
+                  className="mono-text text-xs px-3 py-1.5 rounded-lg transition-all duration-300"
+                  style={{
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-secondary)'
                   }}
                 >
-                  {t(item.key)}
-                </a>
-              ))}
+                  {language === 'en' ? '中文' : 'EN'}
+                </button>
+              </div>
 
+              {/* Mobile Menu Button - 确保在右侧 */}
               <button
-                onClick={() => setLanguage(language === 'en' ? 'zh' : 'en')}
-                className="mono-text text-xs px-3 py-1.5 rounded-lg transition-all duration-300"
-                style={{
-                  background: 'var(--surface)',
-                  border: '1px solid var(--border-color)',
-                  color: 'var(--text-secondary)'
-                }}
+                className="md:hidden p-2"
+                style={{ color: 'var(--text-main)', minHeight: '44px', minWidth: '44px' }}
+                onClick={() => setIsMenuOpen(true)}
+                aria-label="Open menu"
               >
-                {language === 'en' ? '中文' : 'EN'}
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
               </button>
             </div>
-
-            {/* Mobile Menu Button */}
-            <button
-              className="md:hidden p-2 -mr-2"
-              style={{ color: 'var(--text-main)', minHeight: '44px', minWidth: '44px' }}
-              onClick={() => setIsMenuOpen(true)}
-              aria-label="Open menu"
-            >
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
           </div>
         </div>
       </nav>
@@ -135,7 +139,7 @@ export function Navbar() {
                 <span className="text-base font-light" style={{ color: 'var(--text-hero)' }}>Menu</span>
                 <button
                   onClick={() => setIsMenuOpen(false)}
-                  className="p-2 -mr-2"
+                  className="p-2"
                   style={{ color: 'var(--text-main)', minHeight: '44px', minWidth: '44px' }}
                 >
                   <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
