@@ -294,9 +294,9 @@ export function AIConsole() {
                 ))}
               </div>
 
-              {/* 输入框 - 调整padding */}
+              {/* 输入框 - 垂直布局 */}
               <form onSubmit={handleSend}>
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-3">
                   <input
                     ref={inputRef}
                     type="text"
@@ -304,7 +304,7 @@ export function AIConsole() {
                     onChange={(e) => setInput(e.target.value)}
                     placeholder={isStreaming ? 'Response in progress...' : t('chat.placeholder')}
                     disabled={isStreaming}
-                    className="flex-1 px-4 py-3.5 text-sm md:text-base focus:outline-none disabled:opacity-50"
+                    className="w-full px-4 py-3.5 text-sm md:text-base focus:outline-none disabled:opacity-50"
                     style={{ 
                       background: 'var(--surface)', 
                       border: '1px solid var(--border-color)', 
@@ -319,31 +319,29 @@ export function AIConsole() {
                     <button 
                       type="button" 
                       onClick={stopStreaming} 
-                      className="px-4 py-3 text-sm font-medium flex items-center justify-center"
+                      className="w-full py-3.5 text-sm font-medium flex items-center justify-center gap-2"
                       style={{ 
                         background: 'rgba(239, 68, 68, 0.1)', 
                         color: '#ef4444', 
                         border: '1px solid rgba(239, 68, 68, 0.3)', 
-                        borderRadius: '16px',
+                        borderRadius: '18px',
                         minHeight: '48px',
-                        minWidth: '80px',
                       }}
                     >
-                      <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1" fill="currentColor" /></svg>
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1" fill="currentColor" /></svg>
                       Stop
                     </button>
                   ) : (
                     <button 
                       type="submit" 
                       disabled={!input.trim()} 
-                      className="px-4 py-3 text-sm font-medium disabled:opacity-50"
+                      className="w-full py-3.5 text-sm font-medium disabled:opacity-50"
                       style={{ 
                         background: 'var(--surface-active)', 
                         color: 'var(--brand)', 
                         border: '1px solid var(--border-hover)', 
-                        borderRadius: '16px',
+                        borderRadius: '18px',
                         minHeight: '48px',
-                        minWidth: '60px',
                       }}
                     >
                       发送
