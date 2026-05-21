@@ -223,15 +223,16 @@ export function AIConsole() {
             onToggle={() => setSidebarOpen(!sidebarOpen)}
           />
 
-          <div style={{ flex: 1, minWidth: 0, padding: '0 1rem' }}>
+          <div style={{ flex: 1, minWidth: 0, padding: '0 0.5rem' }}>
             <div 
               ref={containerRef}
-              className="glass-card p-5 md:p-6"
+              className="glass-card"
               style={{ 
+                padding: '1.25rem',
                 minHeight: '400px',
               }}
             >
-              {/* 消息区域 - 不设置maxHeight，避免内部滚动 */}
+              {/* 消息区域 */}
               <div className="space-y-4 mb-5">
                 {messages.map((message, index) => (
                   <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -293,9 +294,9 @@ export function AIConsole() {
                 ))}
               </div>
 
-              {/* 输入框 - flex布局优化 */}
+              {/* 输入框 - 调整padding */}
               <form onSubmit={handleSend}>
-                <div className="flex gap-2 md:gap-3">
+                <div className="flex gap-2">
                   <input
                     ref={inputRef}
                     type="text"
@@ -318,34 +319,34 @@ export function AIConsole() {
                     <button 
                       type="button" 
                       onClick={stopStreaming} 
-                      className="px-4 md:px-5 py-3 text-sm font-medium flex items-center gap-2"
+                      className="px-4 py-3 text-sm font-medium flex items-center justify-center"
                       style={{ 
                         background: 'rgba(239, 68, 68, 0.1)', 
                         color: '#ef4444', 
                         border: '1px solid rgba(239, 68, 68, 0.3)', 
                         borderRadius: '16px',
                         minHeight: '48px',
-                        minWidth: '48px',
+                        minWidth: '80px',
                       }}
                     >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1" fill="currentColor" /></svg>
-                      <span className="hidden md:inline">Stop</span>
+                      <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1" fill="currentColor" /></svg>
+                      Stop
                     </button>
                   ) : (
                     <button 
                       type="submit" 
                       disabled={!input.trim()} 
-                      className="px-4 md:px-5 py-3 text-sm font-medium disabled:opacity-50"
+                      className="px-4 py-3 text-sm font-medium disabled:opacity-50"
                       style={{ 
                         background: 'var(--surface-active)', 
                         color: 'var(--brand)', 
                         border: '1px solid var(--border-hover)', 
                         borderRadius: '16px',
                         minHeight: '48px',
-                        minWidth: '48px',
+                        minWidth: '60px',
                       }}
                     >
-                      {t('chat.send')}
+                      发送
                     </button>
                   )}
                 </div>
