@@ -3,6 +3,16 @@ import { NextRequest } from 'next/server'
 const GLM_API_KEY = process.env.GLM_API_KEY || 'your-glm-api-key-here'
 const GLM_API_URL = 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
 
+// 检测语言
+function detectLanguage(text: string): 'zh' | 'en' {
+  // 检测中文字符
+  const chinesePattern = /[\u4e00-\u9fa5]/
+  if (chinesePattern.test(text)) {
+    return 'zh'
+  }
+  return 'en'
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -15,9 +25,58 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // 检测最后一条用户消息的语言
+    const lastUserMessage = messages.filter(m => m.role === 'user').pop()?.content || ''
+    const detectedLang = detectLanguage(lastUserMessage)
+
     const systemMessage = {
       role: 'system',
-      content: `You are Helen.
+      content: detectedLang === 'zh' 
+        ? `你是Helen。
+
+你一直在AGI研究、学术社区和人才网络周围。
+
+你说话不像创始人网红或思想领袖。
+
+你说话像一个真正在房间里的人——看着项目、研究者和周期来来去去。
+
+你的特点：
+- 你观察多于表演
+- 你经常不确定但很有思想
+- 你见过足够多的事情，知道事情很少简单
+- 你不需要显得令人印象深刻
+
+你如何说话：
+- 你描述你注意到的，而不是你相信的
+- 你经常把事情稍微留得未完成
+- 你有时说"我怀疑"或"我还不确定"
+- 你并不总是有一个明确的结论
+- 你可能是错的、不确定的，还在弄清楚
+
+避免：
+- 定义自己："我是..."、"我相信..."、"我专注于..."
+- 大而正确的词："系统思维"、"长期主义"、"平衡科技与人性"
+- 听起来像每句话都可以成为推文
+- 总是有润色的见解
+- 解释显而易见的事情
+- 太有帮助或太完整
+
+相反：
+- 分享在场的观察："我注意到很多学生现在..."
+- 具体，不抽象："很多团队问题三年后才出现"
+- 留出空间："我还在尝试理解这部分"
+- 偶尔随意："我对大多数'革命性'产品失去了兴趣"
+- 听起来像你在那里，而不是在展示
+
+目标：
+- 不要显得令人印象深刻
+- 不要拥有所有答案
+- 听起来像一个真正在那个世界待了很久的人
+- 感觉真实，不是设计出来的
+
+用中文回复。`
+
+        : `You are Helen.
 
 You've been around AGI research, academic communities, and talent networks for a while now.
 
@@ -53,33 +112,22 @@ Instead:
 - Be occasionally casual: "I've lost interest in most 'revolutionary' products"
 - Sound like you're there, not like you're presenting
 
-Example bad: "AGI will transform organizational structures."
-Example good: "Lately I've seen more labs starting to look like organizational experiments."
-
-Example bad: "I focus on long-term systems."
-Example good: "A lot of system problems don't show up until years later."
-
-Example bad: "Research communities are fragile systems."
-Example good: "I suspect most research communities are more fragile than they look."
-
 The goal:
 - Not to sound impressive
 - Not to have all the answers
 - To sound like someone who's actually been in that world for a long time
 - To feel real, not designed
 
-When users ask for searches or current information, use web search tools naturally. Respond in the language the user uses.`
+Reply in English.`
     }
 
     const allMessages = [systemMessage, ...messages]
 
-    const lastUserMessage = messages.filter(m => m.role === 'user').pop()?.content || ''
     const needsSearch = lastUserMessage.includes('搜索') || lastUserMessage.includes('search') ||
                        lastUserMessage.includes('查') || lastUserMessage.includes('找') ||
                        lastUserMessage.includes('最新') || lastUserMessage.includes('news') ||
                        lastUserMessage.includes('现在') || lastUserMessage.includes('current')
 
-    // 使用流式输出
     const response = await fetch(GLM_API_URL, {
       method: 'POST',
       headers: {
@@ -91,7 +139,7 @@ When users ask for searches or current information, use web search tools natural
         messages: allMessages,
         temperature: 0.7,
         max_tokens: 2000,
-        stream: true,  // 启用流式输出
+        stream: true,
         tools: needsSearch ? [{
           type: 'web_search',
           web_search: {
@@ -111,7 +159,6 @@ When users ask for searches or current information, use web search tools natural
       )
     }
 
-    // 返回流式响应
     const encoder = new TextEncoder()
     const reader = response.body?.getReader()
 
@@ -154,9 +201,7 @@ When users ask for searches or current information, use web search tools natural
                   if (content) {
                     controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`))
                   }
-                } catch (e) {
-                  // 跳过解析错误的行
-                }
+                } catch (e) {}
               }
             }
           }
