@@ -208,7 +208,7 @@ export function AIConsole() {
   return (
     <section id="interact" className="section-padding relative z-10" style={{ background: 'transparent' }}>
       <div className="container-max">
-        <div className="mb-6 md:mb-8 pl-12 md:pl-0">
+        <div className="mb-6 md:mb-8">
           <p className="mono-text text-xs mb-3 md:mb-4" style={{ color: 'var(--brand)' }}>INTERACT</p>
           <h2 className="editorial-heading text-2xl md:text-3xl lg:text-4xl" style={{ color: 'var(--text-hero)' }}>{t('chat.title')}</h2>
         </div>
@@ -226,20 +226,17 @@ export function AIConsole() {
           <div style={{ flex: 1, minWidth: 0, padding: '0 1rem' }}>
             <div 
               ref={containerRef}
-              className="glass-card p-4 md:p-6"
+              className="glass-card p-5 md:p-6"
               style={{ 
-                maxHeight: '70vh', 
                 minHeight: '400px',
-                overflowY: 'auto', 
-                scrollbarWidth: 'thin',
-                WebkitOverflowScrolling: 'touch',
               }}
             >
-              <div className="space-y-3 md:space-y-4 mb-4 md:mb-6">
+              {/* 消息区域 - 不设置maxHeight，避免内部滚动 */}
+              <div className="space-y-4 mb-5">
                 {messages.map((message, index) => (
                   <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                     <div
-                      className="max-w-[90%] md:max-w-[85%]"
+                      className="max-w-[88%] md:max-w-[85%]"
                       style={{
                         padding: message.role === 'user' ? '14px 18px' : '0',
                         background: message.role === 'user' ? 'rgba(127, 231, 196, 0.1)' : 'transparent',
@@ -254,7 +251,7 @@ export function AIConsole() {
 
                 {isStreaming && streamingContent && (
                   <div className="flex justify-start">
-                    <div className="max-w-[90%] md:max-w-[85%]">
+                    <div className="max-w-[88%] md:max-w-[85%]">
                       <p className="text-sm md:text-base leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--text-main)' }}>
                         {streamingContent}
                         <span className="inline-block w-0.5 h-4 md:h-5 ml-0.5" style={{ background: 'var(--brand)', animation: 'blink 1s infinite' }} />
@@ -274,7 +271,7 @@ export function AIConsole() {
                 )}
               </div>
 
-              {/* 预设问题 - 移动端优化 */}
+              {/* 预设问题 */}
               <div className="flex flex-wrap gap-2 mb-4">
                 {suggestedQuestions.map((question, index) => (
                   <button
@@ -282,14 +279,13 @@ export function AIConsole() {
                     type="button"
                     onClick={() => handleSuggestedQuestion(question)}
                     disabled={isStreaming}
-                    className="px-3 py-2 md:py-1.5 text-xs md:text-sm transition-all duration-200 disabled:opacity-40 cursor-pointer active:scale-95"
+                    className="px-3 py-2 text-xs md:text-sm transition-all duration-200 disabled:opacity-40"
                     style={{ 
                       background: 'var(--surface)', 
                       border: '1px solid var(--border-color)', 
                       borderRadius: '16px', 
                       color: 'var(--text-secondary)',
-                      minHeight: '44px', // 触摸友好
-                      WebkitTapHighlightColor: 'transparent',
+                      minHeight: '44px',
                     }}
                   >
                     {question}
@@ -297,7 +293,7 @@ export function AIConsole() {
                 ))}
               </div>
 
-              {/* 输入框 - 移动端优化 */}
+              {/* 输入框 - flex布局优化 */}
               <form onSubmit={handleSend}>
                 <div className="flex gap-2 md:gap-3">
                   <input
@@ -307,14 +303,14 @@ export function AIConsole() {
                     onChange={(e) => setInput(e.target.value)}
                     placeholder={isStreaming ? 'Response in progress...' : t('chat.placeholder')}
                     disabled={isStreaming}
-                    className="flex-1 px-4 py-3.5 md:py-3 text-sm md:text-base focus:outline-none disabled:opacity-50"
+                    className="flex-1 px-4 py-3.5 text-sm md:text-base focus:outline-none disabled:opacity-50"
                     style={{ 
                       background: 'var(--surface)', 
                       border: '1px solid var(--border-color)', 
-                      borderRadius: '18px md:16px', 
+                      borderRadius: '18px', 
                       color: 'var(--text-main)',
                       minHeight: '48px',
-                      fontSize: '16px', // 防止iOS自动缩放
+                      fontSize: '16px',
                     }}
                   />
                   
@@ -322,14 +318,14 @@ export function AIConsole() {
                     <button 
                       type="button" 
                       onClick={stopStreaming} 
-                      className="px-4 md:px-5 py-3 md:py-3 text-sm font-medium flex items-center gap-2 cursor-pointer active:scale-95"
+                      className="px-4 md:px-5 py-3 text-sm font-medium flex items-center gap-2"
                       style={{ 
                         background: 'rgba(239, 68, 68, 0.1)', 
                         color: '#ef4444', 
                         border: '1px solid rgba(239, 68, 68, 0.3)', 
                         borderRadius: '16px',
                         minHeight: '48px',
-                        WebkitTapHighlightColor: 'transparent',
+                        minWidth: '48px',
                       }}
                     >
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1" fill="currentColor" /></svg>
@@ -339,14 +335,14 @@ export function AIConsole() {
                     <button 
                       type="submit" 
                       disabled={!input.trim()} 
-                      className="px-4 md:px-5 py-3 md:py-3 text-sm font-medium disabled:opacity-50 cursor-pointer active:scale-95"
+                      className="px-4 md:px-5 py-3 text-sm font-medium disabled:opacity-50"
                       style={{ 
                         background: 'var(--surface-active)', 
                         color: 'var(--brand)', 
                         border: '1px solid var(--border-hover)', 
                         borderRadius: '16px',
                         minHeight: '48px',
-                        WebkitTapHighlightColor: 'transparent',
+                        minWidth: '48px',
                       }}
                     >
                       {t('chat.send')}
