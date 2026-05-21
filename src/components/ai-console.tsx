@@ -29,11 +29,9 @@ export function AIConsole() {
   const abortControllerRef = useRef<AbortController | null>(null)
   const scrollRafRef = useRef<number | null>(null)
 
-  // 获取当前对话
   const currentConversation = conversations.find(c => c.id === currentConversationId)
   const messages = currentConversation?.messages || []
 
-  // 加载历史
   useEffect(() => {
     const stored = localStorage.getItem('chat-conversations')
     if (stored) {
@@ -53,14 +51,12 @@ export function AIConsole() {
     }
   }, [])
 
-  // 保存到localStorage
   useEffect(() => {
     if (conversations.length > 0) {
       localStorage.setItem('chat-conversations', JSON.stringify(conversations))
     }
   }, [conversations])
 
-  // 创建新对话
   const createNewConversation = useCallback(() => {
     const newConv: Conversation = {
       id: `conv-${Date.now()}`,
@@ -76,7 +72,6 @@ export function AIConsole() {
     setSidebarOpen(false)
   }, [language, t])
 
-  // 切换对话
   const selectConversation = useCallback((id: string) => {
     setCurrentConversationId(id)
     setStreamingContent('')
@@ -84,11 +79,8 @@ export function AIConsole() {
     setSidebarOpen(false)
   }, [])
 
-  // 滚动
   const scrollToBottom = useCallback(() => {
-    if (scrollRafRef.current) {
-      cancelAnimationFrame(scrollRafRef.current)
-    }
+    if (scrollRafRef.current) cancelAnimationFrame(scrollRafRef.current)
     scrollRafRef.current = requestAnimationFrame(() => {
       if (containerRef.current) {
         containerRef.current.scrollTop = containerRef.current.scrollHeight
@@ -110,7 +102,6 @@ export function AIConsole() {
       abortControllerRef.current.abort()
       abortControllerRef.current = null
     }
-    
     if (streamingContent && currentConversationId) {
       setConversations(prev => prev.map(c => 
         c.id === currentConversationId 
@@ -118,7 +109,6 @@ export function AIConsole() {
           : c
       ))
     }
-    
     setIsStreaming(false)
     setStreamingContent('')
   }, [streamingContent, currentConversationId])
@@ -126,7 +116,6 @@ export function AIConsole() {
   const sendMessage = async (userMessage: string) => {
     if (!currentConversationId) return
 
-    // 更新对话标题（首次提问）
     setConversations(prev => prev.map(c => 
       c.id === currentConversationId 
         ? { 
@@ -140,7 +129,6 @@ export function AIConsole() {
     setInput('')
     setIsStreaming(true)
     setStreamingContent('')
-
     abortControllerRef.current = new AbortController()
 
     try {
@@ -163,15 +151,12 @@ export function AIConsole() {
         while (true) {
           const { done, value } = await reader.read()
           if (done) break
-
           const chunk = decoder.decode(value, { stream: true })
           const lines = chunk.split('\n')
-
           for (const line of lines) {
             if (line.startsWith('data: ')) {
               const data = line.slice(6)
               if (data === '[DONE]') continue
-
               try {
                 const parsed = JSON.parse(data)
                 fullContent += parsed.content || ''
@@ -182,7 +167,6 @@ export function AIConsole() {
         }
       }
 
-      // 保存回复
       setConversations(prev => prev.map(c => 
         c.id === currentConversationId 
           ? { ...c, messages: [...c.messages, { role: 'assistant' as const, content: fullContent }] }
@@ -216,40 +200,20 @@ export function AIConsole() {
     await sendMessage(question)
   }
 
-  const suggestedQuestionsEn = [
-    "What's left after Scaling?",
-    "Are Agents more like employees or organizations?",
-    "Why does research taste matter?",
-    "What will be scarcer than models?",
-    "Will AI rewrite organizational structures?",
-    "Search for today's AI news"
-  ]
-
-  const suggestedQuestionsZh = [
-    "Scaling 之后还剩什么？",
-    "Agent 更像员工还是组织？",
-    "为什么 research taste 很重要？",
-    "什么会比模型更稀缺？",
-    "AI 会重写组织结构吗？",
-    "搜索今天的AI热点新闻"
-  ]
-
-  const suggestedQuestions = language === 'en' ? suggestedQuestionsEn : suggestedQuestionsZh
+  const suggestedQuestions = language === 'en' 
+    ? ["What's left after Scaling?", "Are Agents more like employees or organizations?", "Why does research taste matter?", "What will be scarcer than models?", "Will AI rewrite organizational structures?", "Search for today's AI news"]
+    : ["Scaling 之后还剩什么？", "Agent 更像员工还是组织？", "为什么 research taste 很重要？", "什么会比模型更稀缺？", "AI 会重写组织结构吗？", "搜索今天的AI热点新闻"]
 
   return (
     <section id="interact" className="section-padding relative z-10" style={{ background: 'transparent' }}>
       <div className="container-max">
-        <div className="mb-8 pl-12">
-          <p className="mono-text text-xs mb-4" style={{ color: 'var(--brand)' }}>
-            INTERACT
-          </p>
-          <h2 className="editorial-heading text-3xl md:text-4xl" style={{ color: 'var(--text-hero)' }}>
-            {t('chat.title')}
-          </h2>
+        <div className="mb-8">
+          <p className="mono-text text-xs mb-4" style={{ color: 'var(--brand)' }}>INTERACT</p>
+          <h2 className="editorial-heading text-3xl md:text-4xl" style={{ color: 'var(--text-hero)' }}>{t('chat.title')}</h2>
         </div>
 
-        <div className="flex">
-          {/* 侧边栏 */}
+        {/* 全宽flex容器 */}
+        <div style={{ display: 'flex', marginLeft: 'calc(-50vw + 50%)', marginRight: 'calc(-50vw + 50%)', paddingLeft: 'calc(50vw - 50%)', paddingRight: 'calc(50vw - 50%)' }}>
           <ChatSidebar
             currentConversationId={currentConversationId}
             onSelectConversation={selectConversation}
@@ -258,12 +222,11 @@ export function AIConsole() {
             onToggle={() => setSidebarOpen(!sidebarOpen)}
           />
 
-          {/* 主聊天区 */}
-          <div className="flex-1 min-w-0">
+          <div style={{ flex: 1, minWidth: 0, padding: '0 1rem' }}>
             <div 
               ref={containerRef}
-              className="glass-card p-6 max-h-[600px] overflow-y-auto overflow-x-hidden"
-              style={{ scrollbarWidth: 'thin' }}
+              className="glass-card p-6"
+              style={{ maxHeight: '600px', overflowY: 'auto', scrollbarWidth: 'thin' }}
             >
               <div className="space-y-4 mb-6">
                 {messages.map((message, index) => (
@@ -297,8 +260,7 @@ export function AIConsole() {
                   <div className="flex justify-start">
                     <div className="flex gap-1 py-2">
                       {[0, 1, 2].map(i => (
-                        <div key={i} className="w-1.5 h-1.5 rounded-full" 
-                          style={{ background: 'var(--brand)', opacity: 0.5, animation: 'pulse 1.5s ease-in-out infinite', animationDelay: `${i * 0.1}s` }} />
+                        <div key={i} className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--brand)', opacity: 0.5, animation: 'pulse 1.5s ease-in-out infinite', animationDelay: `${i * 0.1}s` }} />
                       ))}
                     </div>
                   </div>

@@ -28,7 +28,6 @@ export function ChatSidebar({
   const [conversations, setConversations] = useState<Conversation[]>([])
   const { language } = useLanguage()
 
-  // 加载历史对话
   useEffect(() => {
     const stored = localStorage.getItem('chat-conversations')
     if (stored) {
@@ -40,20 +39,13 @@ export function ChatSidebar({
     }
   }, [])
 
-  // 保存到localStorage
-  const saveConversations = (convs: Conversation[]) => {
-    localStorage.setItem('chat-conversations', JSON.stringify(convs))
-    setConversations(convs)
-  }
-
-  // 删除对话
   const deleteConversation = (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
     const filtered = conversations.filter(c => c.id !== id)
-    saveConversations(filtered)
+    localStorage.setItem('chat-conversations', JSON.stringify(filtered))
+    setConversations(filtered)
   }
 
-  // 清空所有
   const clearAll = () => {
     if (confirm(language === 'zh' ? '确定要清空所有对话吗？' : 'Clear all conversations?')) {
       localStorage.removeItem('chat-conversations')
@@ -61,21 +53,15 @@ export function ChatSidebar({
     }
   }
 
-  // 格式化时间
   const formatTime = (timestamp: number) => {
     const date = new Date(timestamp)
     const now = new Date()
     const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
     
-    if (diffDays === 0) {
-      return language === 'zh' ? '今天' : 'Today'
-    } else if (diffDays === 1) {
-      return language === 'zh' ? '昨天' : 'Yesterday'
-    } else if (diffDays < 7) {
-      return language === 'zh' ? `${diffDays}天前` : `${diffDays} days ago`
-    } else {
-      return date.toLocaleDateString()
-    }
+    if (diffDays === 0) return language === 'zh' ? '今天' : 'Today'
+    if (diffDays === 1) return language === 'zh' ? '昨天' : 'Yesterday'
+    if (diffDays < 7) return language === 'zh' ? `${diffDays}天前` : `${diffDays} days ago`
+    return date.toLocaleDateString()
   }
 
   return (
@@ -93,19 +79,21 @@ export function ChatSidebar({
         className={`
           fixed md:relative
           top-0 left-0
-          h-full
+          h-screen md:h-auto
           z-50 md:z-0
-          transition-transform duration-300
-          ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0 md:w-0'}
+          transition-all duration-300
+          ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
         `}
         style={{
-          width: isOpen ? '280px' : '0',
+          width: isOpen ? '260px' : '0px',
+          minWidth: isOpen ? '260px' : '0px',
           background: 'var(--background)',
           borderRight: isOpen ? '1px solid var(--border-color)' : 'none',
+          flexShrink: 0,
         }}
       >
         {isOpen && (
-          <div className="flex flex-col h-full">
+          <div className="flex flex-col h-full overflow-hidden">
             {/* 头部 */}
             <div className="p-4 border-b" style={{ borderColor: 'var(--border-color)' }}>
               <button
@@ -148,16 +136,10 @@ export function ChatSidebar({
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
-                          <p 
-                            className="text-sm truncate"
-                            style={{ color: 'var(--text-main)' }}
-                          >
+                          <p className="text-sm truncate" style={{ color: 'var(--text-main)' }}>
                             {conv.title}
                           </p>
-                          <p 
-                            className="text-xs mt-1"
-                            style={{ color: 'var(--text-tertiary)' }}
-                          >
+                          <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
                             {formatTime(conv.createdAt)}
                           </p>
                         </div>
@@ -183,9 +165,7 @@ export function ChatSidebar({
                 <button
                   onClick={clearAll}
                   className="w-full px-4 py-2 text-xs transition-all duration-200 cursor-pointer"
-                  style={{
-                    color: 'var(--text-tertiary)',
-                  }}
+                  style={{ color: 'var(--text-tertiary)' }}
                 >
                   {language === 'zh' ? '清空所有对话' : 'Clear all conversations'}
                 </button>
