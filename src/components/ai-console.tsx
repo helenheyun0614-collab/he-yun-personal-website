@@ -10,28 +10,24 @@ export function AIConsole() {
   const [streamingContent, setStreamingContent] = useState('')
   const { language, t } = useLanguage()
   
-  const messagesContainerRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
   const scrollRafRef = useRef<number | null>(null)
 
-  // 防抖滚动 - 降低频率但不阻塞 UI
+  // 自动滚动
   const scrollToBottom = useCallback(() => {
-    // 取消之前的滚动请求
     if (scrollRafRef.current) {
       cancelAnimationFrame(scrollRafRef.current)
     }
     
-    // 使用 requestAnimationFrame 批量处理
     scrollRafRef.current = requestAnimationFrame(() => {
-      if (messagesContainerRef.current) {
-        const container = messagesContainerRef.current
-        container.scrollTop = container.scrollHeight
+      if (containerRef.current) {
+        containerRef.current.scrollTop = containerRef.current.scrollHeight
       }
       scrollRafRef.current = null
     })
   }, [])
 
-  // 初始问候
   useEffect(() => {
     setMessages([
       {
@@ -42,21 +38,18 @@ export function AIConsole() {
     setTimeout(scrollToBottom, 100)
   }, [language, t, scrollToBottom])
 
-  // 流式输出时滚动（已由防抖处理）
   useEffect(() => {
     if (streamingContent) {
       scrollToBottom()
     }
   }, [streamingContent, scrollToBottom])
 
-  // 新消息添加后滚动
   useEffect(() => {
     if (messages.length > 1) {
       scrollToBottom()
     }
   }, [messages, scrollToBottom])
 
-  // 清理
   useEffect(() => {
     return () => {
       if (scrollRafRef.current) {
@@ -218,29 +211,31 @@ export function AIConsole() {
           </h2>
         </div>
 
-        <div className="glass-card relative z-20">
-          <div 
-            ref={messagesContainerRef}
-            className="p-6 space-y-6 min-h-[300px] max-h-[500px] overflow-y-auto overflow-x-hidden"
-            style={{ 
-              scrollbarWidth: 'thin',
-              overscrollBehavior: 'contain',
-            }}
-          >
+        {/* 极简聊天容器 */}
+        <div 
+          ref={containerRef}
+          className="glass-card p-6 max-h-[600px] overflow-y-auto overflow-x-hidden"
+          style={{ 
+            scrollbarWidth: 'thin',
+            overscrollBehavior: 'contain',
+          }}
+        >
+          {/* 消息列表 */}
+          <div className="space-y-4 mb-6">
             {messages.map((message, index) => (
               <div
                 key={index}
                 className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 <div
-                  className="max-w-[80%] p-4"
+                  className="max-w-[85%]"
                   style={{
+                    padding: message.role === 'user' ? '12px 16px' : '0',
                     background: message.role === 'user' 
-                      ? 'var(--surface-active)' 
-                      : 'var(--surface)',
-                    border: `1px solid ${message.role === 'user' ? 'var(--border-hover)' : 'var(--border-color)'}`,
+                      ? 'rgba(127, 231, 196, 0.1)' 
+                      : 'transparent',
+                    borderRadius: message.role === 'user' ? '16px' : '0',
                     color: message.role === 'user' ? 'var(--brand)' : 'var(--text-main)',
-                    borderRadius: 'var(--border-radius)',
                   }}
                 >
                   <p className="text-sm leading-relaxed whitespace-pre-wrap">
@@ -250,18 +245,14 @@ export function AIConsole() {
               </div>
             ))}
 
+            {/* 流式输出 */}
             {isStreaming && streamingContent && (
               <div className="flex justify-start">
-                <div
-                  className="max-w-[80%] p-4"
-                  style={{
-                    background: 'var(--surface)',
-                    border: '1px solid var(--border-color)',
-                    color: 'var(--text-main)',
-                    borderRadius: 'var(--border-radius)',
-                  }}
+                <div 
+                  className="max-w-[85%]"
+                  style={{ padding: 0 }}
                 >
-                  <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--text-main)' }}>
                     {streamingContent}
                     <span 
                       className="inline-block w-0.5 h-4 ml-0.5"
@@ -276,39 +267,60 @@ export function AIConsole() {
               </div>
             )}
 
+            {/* 等待指示器 */}
             {isStreaming && !streamingContent && (
               <div className="flex justify-start">
-                <div 
-                  className="p-4"
-                  style={{
-                    background: 'var(--surface)',
-                    borderRadius: 'var(--border-radius)',
-                  }}
-                >
-                  <div className="flex gap-1">
-                    <div 
-                      className="w-2 h-2 rounded-full"
-                      style={{ background: 'var(--brand)', opacity: 0.6, animation: 'pulse 1.5s ease-in-out infinite' }}
-                    />
-                    <div 
-                      className="w-2 h-2 rounded-full"
-                      style={{ background: 'var(--brand)', opacity: 0.6, animation: 'pulse 1.5s ease-in-out infinite', animationDelay: '0.1s' }}
-                    />
-                    <div 
-                      className="w-2 h-2 rounded-full"
-                      style={{ background: 'var(--brand)', opacity: 0.6, animation: 'pulse 1.5s ease-in-out infinite', animationDelay: '0.2s' }}
-                    />
-                  </div>
+                <div className="flex gap-1 py-2">
+                  <div 
+                    className="w-1.5 h-1.5 rounded-full"
+                    style={{ background: 'var(--brand)', opacity: 0.5, animation: 'pulse 1.5s ease-in-out infinite' }}
+                  />
+                  <div 
+                    className="w-1.5 h-1.5 rounded-full"
+                    style={{ background: 'var(--brand)', opacity: 0.5, animation: 'pulse 1.5s ease-in-out infinite', animationDelay: '0.1s' }}
+                  />
+                  <div 
+                    className="w-1.5 h-1.5 rounded-full"
+                    style={{ background: 'var(--brand)', opacity: 0.5, animation: 'pulse 1.5s ease-in-out infinite', animationDelay: '0.2s' }}
+                  />
                 </div>
               </div>
             )}
           </div>
 
-          <form 
-            onSubmit={handleSend} 
-            className="p-6"
-            style={{ borderTop: '1px solid var(--border-color)' }}
-          >
+          {/* 预设问题（在输入框上方） */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            {suggestedQuestions.map((question, index) => (
+              <button
+                key={index}
+                type="button"
+                onClick={() => handleSuggestedQuestion(question)}
+                disabled={isStreaming}
+                className="px-3 py-1.5 text-xs transition-all duration-200 disabled:opacity-40 cursor-pointer"
+                style={{
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '12px',
+                  color: 'var(--text-secondary)',
+                }}
+                onMouseEnter={(e) => {
+                  if (!isStreaming) {
+                    e.currentTarget.style.borderColor = 'var(--border-hover)'
+                    e.currentTarget.style.color = 'var(--brand)'
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--border-color)'
+                  e.currentTarget.style.color = 'var(--text-secondary)'
+                }}
+              >
+                {question}
+              </button>
+            ))}
+          </div>
+
+          {/* 输入框（跟随内容） */}
+          <form onSubmit={handleSend}>
             <div className="flex gap-3">
               <input
                 type="text"
@@ -316,11 +328,11 @@ export function AIConsole() {
                 onChange={handleInputChange}
                 placeholder={isStreaming ? 'Response in progress...' : t('chat.placeholder')}
                 disabled={isStreaming}
-                className="flex-1 px-4 py-3 text-sm focus:outline-none transition-colors disabled:opacity-50"
+                className="flex-1 px-4 py-3 text-sm focus:outline-none disabled:opacity-50"
                 style={{
-                  background: 'var(--background)',
+                  background: 'var(--surface)',
                   border: '1px solid var(--border-color)',
-                  borderRadius: 'var(--border-radius)',
+                  borderRadius: '16px',
                   color: 'var(--text-main)',
                 }}
                 onFocus={(e) => {
@@ -337,12 +349,12 @@ export function AIConsole() {
                 <button
                   type="button"
                   onClick={stopStreaming}
-                  className="px-6 py-3 text-sm font-medium transition-all duration-300 flex items-center gap-2 cursor-pointer hover:opacity-80"
+                  className="px-5 py-3 text-sm font-medium transition-all duration-200 flex items-center gap-2 cursor-pointer"
                   style={{
                     background: 'rgba(239, 68, 68, 0.1)',
                     color: '#ef4444',
                     border: '1px solid rgba(239, 68, 68, 0.3)',
-                    borderRadius: 'var(--border-radius)',
+                    borderRadius: '16px',
                   }}
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -354,12 +366,12 @@ export function AIConsole() {
                 <button
                   type="submit"
                   disabled={!input.trim()}
-                  className="px-6 py-3 text-sm font-medium transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  className="px-5 py-3 text-sm font-medium transition-all duration-200 disabled:opacity-50 cursor-pointer"
                   style={{
                     background: 'var(--surface-active)',
                     color: 'var(--brand)',
                     border: '1px solid var(--border-hover)',
-                    borderRadius: 'var(--border-radius)',
+                    borderRadius: '16px',
                   }}
                 >
                   {t('chat.send')}
@@ -367,45 +379,6 @@ export function AIConsole() {
               )}
             </div>
           </form>
-        </div>
-
-        <div className="mt-6">
-          <p 
-            className="mono-text text-xs mb-3"
-            style={{ color: 'var(--text-tertiary)' }}
-          >
-            {t('chat.suggested')}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {suggestedQuestions.map((question, index) => (
-              <button
-                key={index}
-                type="button"
-                onClick={() => handleSuggestedQuestion(question)}
-                disabled={isStreaming}
-                className="px-3 py-1.5 text-xs transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                style={{
-                  background: 'var(--surface)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: 'var(--border-radius)',
-                  color: 'var(--text-secondary)',
-                }}
-                title={isStreaming ? 'Current response in progress' : ''}
-                onMouseEnter={(e) => {
-                  if (!isStreaming) {
-                    e.currentTarget.style.borderColor = 'var(--border-hover)'
-                    e.currentTarget.style.color = 'var(--brand)'
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--border-color)'
-                  e.currentTarget.style.color = 'var(--text-secondary)'
-                }}
-              >
-                {question}
-              </button>
-            ))}
-          </div>
         </div>
       </div>
 
