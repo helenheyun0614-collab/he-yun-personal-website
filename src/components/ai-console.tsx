@@ -205,8 +205,8 @@ export function AIConsole() {
   }
 
   const suggestedQuestions = language === 'en' 
-    ? ["What's left after Scaling?", "Are Agents more like employees or organizations?", "Why does research taste matter?", "What will be scarcer than models?", "Will AI rewrite organizational structures?", "Search for today's AI news"]
-    : ["Scaling 之后还剩什么？", "Agent 更像员工还是组织？", "为什么 research taste 很重要？", "什么会比模型更稀缺？", "AI 会重写组织结构吗？", "搜索今天的AI热点新闻"]
+    ? ["Search for today's AI news", "What's left after Scaling?", "Are Agents more like employees or organizations?", "Why does research taste matter?", "What will be scarcer than models?", "Will AI rewrite organizational structures?"]
+    : ["搜索今天的AI热点新闻", "Scaling 之后还剩什么？", "Agent 更像员工还是组织？", "为什么 research taste 很重要？", "什么会比模型更稀缺？", "AI 会重写组织结构吗？"]
 
   return (
     <section id="interact" className="section-padding relative z-10" style={{ background: 'transparent' }}>
