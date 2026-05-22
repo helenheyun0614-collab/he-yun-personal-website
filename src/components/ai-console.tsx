@@ -23,6 +23,7 @@ export function AIConsole() {
   const [isStreaming, setIsStreaming] = useState(false)
   const [streamingContent, setStreamingContent] = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [showSuggestions, setShowSuggestions] = useState(true)
   
   const { language, t } = useLanguage()
   const messagesContainerRef = useRef<HTMLDivElement>(null)
@@ -224,24 +225,23 @@ export function AIConsole() {
           />
 
           <div style={{ flex: 1, minWidth: 0, padding: '0 0.5rem' }}>
-            {/* 外层容器：更小的高度 */}
+            {/* 外层容器：更大高度 */}
             <div 
               className="glass-card"
               style={{ 
                 display: 'flex',
                 flexDirection: 'column',
-                height: '420px',
-                maxHeight: '55vh',
+                height: '500px',
+                maxHeight: '65vh',
               }}
             >
-              {/* 消息区域：可滚动 */}
+              {/* 消息区域：占满大部分空间 */}
               <div 
                 ref={messagesContainerRef}
                 style={{ 
                   flex: 1,
                   overflowY: 'auto',
                   padding: '1.25rem',
-                  paddingBottom: '0.5rem',
                 }}
               >
                 <div className="space-y-4">
@@ -284,7 +284,7 @@ export function AIConsole() {
                 </div>
               </div>
 
-              {/* 底部固定区域：更紧凑 */}
+              {/* 底部固定区域：输入框 + 按钮 + 折叠预设问题 */}
               <div 
                 style={{
                   flexShrink: 0,
@@ -293,49 +293,9 @@ export function AIConsole() {
                   borderTop: '1px solid var(--border-color)',
                 }}
               >
-                {/* 预设问题：更紧凑 */}
-                <div className="flex flex-wrap gap-1.5 mb-2">
-                  {suggestedQuestions.slice(0, 4).map((question, index) => (
-                    <button
-                      key={index}
-                      type="button"
-                      onClick={() => handleSuggestedQuestion(question)}
-                      disabled={isStreaming}
-                      className="px-2.5 py-1.5 text-xs transition-all duration-200 disabled:opacity-40"
-                      style={{ 
-                        background: 'var(--surface)', 
-                        border: '1px solid var(--border-color)', 
-                        borderRadius: '12px', 
-                        color: 'var(--text-secondary)',
-                        minHeight: '36px',
-                      }}
-                    >
-                      {question}
-                    </button>
-                  ))}
-                </div>
-
                 <form onSubmit={handleSend}>
                   <div className="flex flex-col gap-2">
-                    {/* 流式输出时，停止按钮在输入框上方 */}
-                    {isStreaming && (
-                      <button 
-                        type="button" 
-                        onClick={stopStreaming} 
-                        className="w-full py-3 text-sm font-medium flex items-center justify-center gap-2"
-                        style={{ 
-                          background: 'rgba(239, 68, 68, 0.1)', 
-                          color: '#ef4444', 
-                          border: '1px solid rgba(239, 68, 68, 0.3)', 
-                          borderRadius: '16px',
-                          minHeight: '44px',
-                        }}
-                      >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1" fill="currentColor" /></svg>
-                        Stop
-                      </button>
-                    )}
-                    
+                    {/* 输入框 */}
                     <input
                       ref={inputRef}
                       type="text"
@@ -354,7 +314,24 @@ export function AIConsole() {
                       }}
                     />
                     
-                    {!isStreaming && (
+                    {/* 按钮：停止/发送 */}
+                    {isStreaming ? (
+                      <button 
+                        type="button" 
+                        onClick={stopStreaming} 
+                        className="w-full py-3 text-sm font-medium flex items-center justify-center gap-2"
+                        style={{ 
+                          background: 'rgba(239, 68, 68, 0.1)', 
+                          color: '#ef4444', 
+                          border: '1px solid rgba(239, 68, 68, 0.3)', 
+                          borderRadius: '16px',
+                          minHeight: '44px',
+                        }}
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1" fill="currentColor" /></svg>
+                        Stop
+                      </button>
+                    ) : (
                       <button 
                         type="submit" 
                         disabled={!input.trim()} 
@@ -372,6 +349,53 @@ export function AIConsole() {
                     )}
                   </div>
                 </form>
+
+                {/* 折叠预设问题 */}
+                <div style={{ marginTop: '0.5rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowSuggestions(!showSuggestions)}
+                    className="w-full py-2 text-xs flex items-center justify-center gap-1"
+                    style={{ 
+                      color: 'var(--text-secondary)',
+                      opacity: 0.7,
+                    }}
+                  >
+                    {showSuggestions ? '收起问题' : '快捷问题'}
+                    <svg 
+                      className="w-3 h-3 transition-transform" 
+                      style={{ transform: showSuggestions ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                      fill="none" 
+                      viewBox="0 0 24 24" 
+                      stroke="currentColor"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  
+                  {showSuggestions && (
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {suggestedQuestions.slice(0, 4).map((question, index) => (
+                        <button
+                          key={index}
+                          type="button"
+                          onClick={() => handleSuggestedQuestion(question)}
+                          disabled={isStreaming}
+                          className="px-2.5 py-1.5 text-xs transition-all duration-200 disabled:opacity-40"
+                          style={{ 
+                            background: 'var(--surface)', 
+                            border: '1px solid var(--border-color)', 
+                            borderRadius: '12px', 
+                            color: 'var(--text-secondary)',
+                            minHeight: '36px',
+                          }}
+                        >
+                          {question}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
