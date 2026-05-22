@@ -84,7 +84,10 @@ export function AIConsole() {
     if (scrollRafRef.current) cancelAnimationFrame(scrollRafRef.current)
     scrollRafRef.current = requestAnimationFrame(() => {
       if (messagesContainerRef.current) {
-        messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+        messagesContainerRef.current.scrollTo({
+          top: messagesContainerRef.current.scrollHeight,
+          behavior: 'smooth'
+        })
       }
       scrollRafRef.current = null
     })
@@ -208,7 +211,7 @@ export function AIConsole() {
   return (
     <section id="interact" className="section-padding relative z-10" style={{ background: 'transparent' }}>
       <div className="container-max">
-        {/* Title - lighter weight on mobile */}
+        {/* Title - lighter weight */}
         <div className="mb-4 md:mb-6 lg:mb-8">
           <p className="mono-text text-xs mb-2 md:mb-3 lg:mb-4" style={{ color: 'var(--brand)' }}>INTERACT</p>
           <h2 className="editorial-heading text-xl md:text-2xl lg:text-4xl" style={{ color: 'var(--text-hero)', fontWeight: '300' }}>{t('chat.title')}</h2>
@@ -224,49 +227,53 @@ export function AIConsole() {
           />
 
           <div style={{ flex: 1, minWidth: 0, padding: '0 0.5rem' }}>
-            {/* Immersive conversation surface */}
+            {/* Immersive reading surface */}
             <div 
-              className="glass-card"
               style={{ 
+                position: 'relative',
                 display: 'flex',
                 flexDirection: 'column',
-                minHeight: '42vh',
-                maxHeight: '60vh',
-                padding: 0,
-                background: 'rgba(255, 255, 255, 0.02)',
-                backdropFilter: 'blur(20px)',
-                WebkitBackdropFilter: 'blur(20px)',
-                border: '1px solid rgba(127, 231, 196, 0.1)',
+                minHeight: '40vh',
+                maxHeight: '65vh',
+                background: 'rgba(127, 231, 196, 0.02)',
+                backdropFilter: 'blur(24px)',
+                WebkitBackdropFilter: 'blur(24px)',
+                borderRadius: '24px',
+                border: '1px solid rgba(127, 231, 196, 0.08)',
+                boxShadow: '0 0 60px rgba(127, 231, 196, 0.05)',
               }}
             >
-              {/* Messages - immersive reading experience */}
+              {/* Messages - optimized reading surface */}
               <div 
                 ref={messagesContainerRef}
                 style={{ 
                   flex: 1,
                   overflowY: 'auto',
-                  padding: '1.5rem 1.25rem',
-                  paddingBottom: '6rem',
+                  overflowX: 'hidden',
+                  padding: '1.75rem 1.5rem',
+                  paddingBottom: '8rem',
                   WebkitOverflowScrolling: 'touch',
+                  overscrollBehavior: 'contain',
                 }}
               >
-                <div className="space-y-6">
+                <div className="space-y-8">
                   {messages.map((message, index) => (
                     <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                       <div
                         className="max-w-[92%] md:max-w-[85%]"
                         style={{
-                          padding: message.role === 'user' ? '12px 16px' : '0',
-                          background: message.role === 'user' ? 'rgba(127, 231, 196, 0.08)' : 'transparent',
+                          padding: message.role === 'user' ? '10px 14px' : '0',
+                          background: message.role === 'user' ? 'rgba(127, 231, 196, 0.06)' : 'transparent',
                           borderRadius: message.role === 'user' ? '16px' : '0',
-                          color: message.role === 'user' ? 'var(--brand)' : 'var(--text-main)',
                         }}
                       >
                         <p 
-                          className="text-base md:text-lg leading-relaxed whitespace-pre-wrap"
+                          className="leading-relaxed whitespace-pre-wrap"
                           style={{ 
-                            lineHeight: '1.8',
-                            color: message.role === 'assistant' ? 'rgba(255, 255, 255, 0.85)' : 'var(--brand)',
+                            fontSize: '15px',
+                            lineHeight: '1.85',
+                            color: message.role === 'user' ? 'var(--brand)' : 'rgba(255, 255, 255, 0.82)',
+                            letterSpacing: '0.01em',
                           }}
                         >
                           {message.content}
@@ -279,10 +286,12 @@ export function AIConsole() {
                     <div className="flex justify-start">
                       <div className="max-w-[92%] md:max-w-[85%]">
                         <p 
-                          className="text-base md:text-lg leading-relaxed whitespace-pre-wrap"
+                          className="leading-relaxed whitespace-pre-wrap"
                           style={{ 
-                            lineHeight: '1.8',
-                            color: 'rgba(255, 255, 255, 0.85)',
+                            fontSize: '15px',
+                            lineHeight: '1.85',
+                            color: 'rgba(255, 255, 255, 0.82)',
+                            letterSpacing: '0.01em',
                           }}
                         >
                           {streamingContent}
@@ -296,7 +305,7 @@ export function AIConsole() {
                     <div className="flex justify-start">
                       <div className="flex gap-2 py-3">
                         {[0, 1, 2].map(i => (
-                          <div key={i} className="w-2 h-2 rounded-full" style={{ background: 'var(--brand)', opacity: 0.4, animation: 'pulse 1.5s ease-in-out infinite', animationDelay: `${i * 0.15}s` }} />
+                          <div key={i} className="w-2 h-2 rounded-full" style={{ background: 'var(--brand)', opacity: 0.35, animation: 'pulse 1.5s ease-in-out infinite', animationDelay: `${i * 0.15}s` }} />
                         ))}
                       </div>
                     </div>
@@ -304,18 +313,18 @@ export function AIConsole() {
                 </div>
               </div>
 
-              {/* Fixed input area at bottom */}
+              {/* Fixed input area - gradient fade */}
               <div 
                 style={{
                   position: 'absolute',
                   bottom: 0,
                   left: 0,
                   right: 0,
-                  padding: '1rem 1.25rem',
-                  paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))',
-                  background: 'linear-gradient(to top, var(--background) 80%, transparent)',
-                  backdropFilter: 'blur(10px)',
-                  WebkitBackdropFilter: 'blur(10px)',
+                  padding: '1.25rem 1.5rem',
+                  paddingBottom: 'calc(1.25rem + env(safe-area-inset-bottom))',
+                  background: 'linear-gradient(to top, rgba(10, 10, 10, 0.98) 70%, transparent)',
+                  backdropFilter: 'blur(12px)',
+                  WebkitBackdropFilter: 'blur(12px)',
                 }}
               >
                 <form onSubmit={handleSend}>
@@ -329,12 +338,12 @@ export function AIConsole() {
                       disabled={isStreaming}
                       className="w-full px-4 py-3.5 text-base focus:outline-none disabled:opacity-50"
                       style={{ 
-                        background: 'rgba(255, 255, 255, 0.05)', 
-                        border: '1px solid rgba(127, 231, 196, 0.2)', 
+                        background: 'rgba(255, 255, 255, 0.04)', 
+                        border: '1px solid rgba(127, 231, 196, 0.12)', 
                         borderRadius: '20px', 
                         color: 'var(--text-main)',
                         minHeight: '52px',
-                        fontSize: '16px',
+                        fontSize: '15px',
                       }}
                     />
                     
@@ -344,9 +353,9 @@ export function AIConsole() {
                         onClick={stopStreaming} 
                         className="w-full py-3.5 text-sm font-medium flex items-center justify-center gap-2"
                         style={{ 
-                          background: 'rgba(239, 68, 68, 0.08)', 
+                          background: 'rgba(239, 68, 68, 0.06)', 
                           color: '#ef4444', 
-                          border: '1px solid rgba(239, 68, 68, 0.2)', 
+                          border: '1px solid rgba(239, 68, 68, 0.15)', 
                           borderRadius: '20px',
                           minHeight: '52px',
                         }}
@@ -360,9 +369,9 @@ export function AIConsole() {
                         disabled={!input.trim()} 
                         className="w-full py-3.5 text-sm font-medium disabled:opacity-50"
                         style={{ 
-                          background: 'rgba(127, 231, 196, 0.08)', 
+                          background: 'rgba(127, 231, 196, 0.06)', 
                           color: 'var(--brand)', 
-                          border: '1px solid rgba(127, 231, 196, 0.2)', 
+                          border: '1px solid rgba(127, 231, 196, 0.12)', 
                           borderRadius: '20px',
                           minHeight: '52px',
                         }}
@@ -375,12 +384,12 @@ export function AIConsole() {
               </div>
             </div>
 
-            {/* Floating preset questions - outside the main card */}
+            {/* Floating preset questions */}
             <div 
               className="flex flex-wrap gap-2 mt-4"
               style={{ 
                 justifyContent: 'center',
-                opacity: isStreaming ? 0.3 : 1,
+                opacity: isStreaming ? 0.25 : 1,
                 pointerEvents: isStreaming ? 'none' : 'auto',
                 transition: 'opacity 0.3s ease',
               }}
@@ -393,8 +402,8 @@ export function AIConsole() {
                   disabled={isStreaming}
                   className="px-4 py-2 text-xs md:text-sm transition-all duration-300 hover:scale-105"
                   style={{ 
-                    background: 'rgba(127, 231, 196, 0.05)', 
-                    border: '1px solid rgba(127, 231, 196, 0.15)', 
+                    background: 'rgba(127, 231, 196, 0.03)', 
+                    border: '1px solid rgba(127, 231, 196, 0.1)', 
                     borderRadius: '20px', 
                     color: 'var(--text-secondary)',
                     minHeight: '40px',
