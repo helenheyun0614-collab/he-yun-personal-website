@@ -224,14 +224,14 @@ export function AIConsole() {
           />
 
           <div style={{ flex: 1, minWidth: 0, padding: '0 0.5rem' }}>
-            {/* 外层容器：固定高度，flex布局 */}
+            {/* 外层容器：更小的高度 */}
             <div 
               className="glass-card"
               style={{ 
                 display: 'flex',
                 flexDirection: 'column',
-                height: '500px',
-                maxHeight: '70vh',
+                height: '420px',
+                maxHeight: '55vh',
               }}
             >
               {/* 消息区域：可滚动 */}
@@ -284,30 +284,30 @@ export function AIConsole() {
                 </div>
               </div>
 
-              {/* 底部固定区域：预设问题 + 输入框 */}
+              {/* 底部固定区域：更紧凑 */}
               <div 
                 style={{
                   flexShrink: 0,
-                  padding: '1rem 1.25rem',
+                  padding: '0.75rem 1.25rem',
                   background: 'var(--background)',
                   borderTop: '1px solid var(--border-color)',
                 }}
               >
-                {/* 预设问题 */}
-                <div className="flex flex-wrap gap-2 mb-3">
+                {/* 预设问题：更紧凑 */}
+                <div className="flex flex-wrap gap-1.5 mb-2">
                   {suggestedQuestions.slice(0, 4).map((question, index) => (
                     <button
                       key={index}
                       type="button"
                       onClick={() => handleSuggestedQuestion(question)}
                       disabled={isStreaming}
-                      className="px-3 py-2 text-xs md:text-sm transition-all duration-200 disabled:opacity-40"
+                      className="px-2.5 py-1.5 text-xs transition-all duration-200 disabled:opacity-40"
                       style={{ 
                         background: 'var(--surface)', 
                         border: '1px solid var(--border-color)', 
-                        borderRadius: '16px', 
+                        borderRadius: '12px', 
                         color: 'var(--text-secondary)',
-                        minHeight: '44px',
+                        minHeight: '36px',
                       }}
                     >
                       {question}
@@ -316,19 +316,19 @@ export function AIConsole() {
                 </div>
 
                 <form onSubmit={handleSend}>
-                  <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-2">
                     {/* 流式输出时，停止按钮在输入框上方 */}
                     {isStreaming && (
                       <button 
                         type="button" 
                         onClick={stopStreaming} 
-                        className="w-full py-3.5 text-sm font-medium flex items-center justify-center gap-2"
+                        className="w-full py-3 text-sm font-medium flex items-center justify-center gap-2"
                         style={{ 
                           background: 'rgba(239, 68, 68, 0.1)', 
                           color: '#ef4444', 
                           border: '1px solid rgba(239, 68, 68, 0.3)', 
-                          borderRadius: '18px',
-                          minHeight: '48px',
+                          borderRadius: '16px',
+                          minHeight: '44px',
                         }}
                       >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1" fill="currentColor" /></svg>
@@ -343,13 +343,13 @@ export function AIConsole() {
                       onChange={(e) => setInput(e.target.value)}
                       placeholder={isStreaming ? 'Response in progress...' : t('chat.placeholder')}
                       disabled={isStreaming}
-                      className="w-full px-4 py-3.5 text-sm md:text-base focus:outline-none disabled:opacity-50"
+                      className="w-full px-4 py-3 text-sm md:text-base focus:outline-none disabled:opacity-50"
                       style={{ 
                         background: 'var(--surface)', 
                         border: '1px solid var(--border-color)', 
-                        borderRadius: '18px', 
+                        borderRadius: '16px', 
                         color: 'var(--text-main)',
-                        minHeight: '48px',
+                        minHeight: '44px',
                         fontSize: '16px',
                       }}
                     />
@@ -358,13 +358,13 @@ export function AIConsole() {
                       <button 
                         type="submit" 
                         disabled={!input.trim()} 
-                        className="w-full py-3.5 text-sm font-medium disabled:opacity-50"
+                        className="w-full py-3 text-sm font-medium disabled:opacity-50"
                         style={{ 
                           background: 'var(--surface-active)', 
                           color: 'var(--brand)', 
                           border: '1px solid var(--border-hover)', 
-                          borderRadius: '18px',
-                          minHeight: '48px',
+                          borderRadius: '16px',
+                          minHeight: '44px',
                         }}
                       >
                         发送
