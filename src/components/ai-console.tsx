@@ -23,7 +23,6 @@ export function AIConsole() {
   const [isStreaming, setIsStreaming] = useState(false)
   const [streamingContent, setStreamingContent] = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [showSuggestions, setShowSuggestions] = useState(true)
   
   const { language, t } = useLanguage()
   const messagesContainerRef = useRef<HTMLDivElement>(null)
@@ -209,12 +208,12 @@ export function AIConsole() {
   return (
     <section id="interact" className="section-padding relative z-10" style={{ background: 'transparent' }}>
       <div className="container-max">
-        <div className="mb-6 md:mb-8">
-          <p className="mono-text text-xs mb-3 md:mb-4" style={{ color: 'var(--brand)' }}>INTERACT</p>
-          <h2 className="editorial-heading text-2xl md:text-3xl lg:text-4xl" style={{ color: 'var(--text-hero)' }}>{t('chat.title')}</h2>
+        {/* Title - lighter weight on mobile */}
+        <div className="mb-4 md:mb-6 lg:mb-8">
+          <p className="mono-text text-xs mb-2 md:mb-3 lg:mb-4" style={{ color: 'var(--brand)' }}>INTERACT</p>
+          <h2 className="editorial-heading text-xl md:text-2xl lg:text-4xl" style={{ color: 'var(--text-hero)', fontWeight: '300' }}>{t('chat.title')}</h2>
         </div>
 
-        {/* 全宽flex容器 */}
         <div style={{ display: 'flex', marginLeft: 'calc(-50vw + 50%)', marginRight: 'calc(-50vw + 50%)', paddingLeft: 'calc(50vw - 50%)', paddingRight: 'calc(50vw - 50%)' }}>
           <ChatSidebar
             currentConversationId={currentConversationId}
@@ -225,48 +224,69 @@ export function AIConsole() {
           />
 
           <div style={{ flex: 1, minWidth: 0, padding: '0 0.5rem' }}>
-            {/* 外层容器：更大高度 */}
+            {/* Immersive conversation surface */}
             <div 
               className="glass-card"
               style={{ 
                 display: 'flex',
                 flexDirection: 'column',
-                height: '500px',
-                maxHeight: '65vh',
+                minHeight: '42vh',
+                maxHeight: '60vh',
+                padding: 0,
+                background: 'rgba(255, 255, 255, 0.02)',
+                backdropFilter: 'blur(20px)',
+                WebkitBackdropFilter: 'blur(20px)',
+                border: '1px solid rgba(127, 231, 196, 0.1)',
               }}
             >
-              {/* 消息区域：占满大部分空间 */}
+              {/* Messages - immersive reading experience */}
               <div 
                 ref={messagesContainerRef}
                 style={{ 
                   flex: 1,
                   overflowY: 'auto',
-                  padding: '1.25rem',
+                  padding: '1.5rem 1.25rem',
+                  paddingBottom: '6rem',
+                  WebkitOverflowScrolling: 'touch',
                 }}
               >
-                <div className="space-y-4">
+                <div className="space-y-6">
                   {messages.map((message, index) => (
                     <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                       <div
-                        className="max-w-[88%] md:max-w-[85%]"
+                        className="max-w-[92%] md:max-w-[85%]"
                         style={{
-                          padding: message.role === 'user' ? '14px 18px' : '0',
-                          background: message.role === 'user' ? 'rgba(127, 231, 196, 0.1)' : 'transparent',
-                          borderRadius: message.role === 'user' ? '18px' : '0',
+                          padding: message.role === 'user' ? '12px 16px' : '0',
+                          background: message.role === 'user' ? 'rgba(127, 231, 196, 0.08)' : 'transparent',
+                          borderRadius: message.role === 'user' ? '16px' : '0',
                           color: message.role === 'user' ? 'var(--brand)' : 'var(--text-main)',
                         }}
                       >
-                        <p className="text-sm md:text-base leading-relaxed whitespace-pre-wrap">{message.content}</p>
+                        <p 
+                          className="text-base md:text-lg leading-relaxed whitespace-pre-wrap"
+                          style={{ 
+                            lineHeight: '1.8',
+                            color: message.role === 'assistant' ? 'rgba(255, 255, 255, 0.85)' : 'var(--brand)',
+                          }}
+                        >
+                          {message.content}
+                        </p>
                       </div>
                     </div>
                   ))}
 
                   {isStreaming && streamingContent && (
                     <div className="flex justify-start">
-                      <div className="max-w-[88%] md:max-w-[85%]">
-                        <p className="text-sm md:text-base leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--text-main)' }}>
+                      <div className="max-w-[92%] md:max-w-[85%]">
+                        <p 
+                          className="text-base md:text-lg leading-relaxed whitespace-pre-wrap"
+                          style={{ 
+                            lineHeight: '1.8',
+                            color: 'rgba(255, 255, 255, 0.85)',
+                          }}
+                        >
                           {streamingContent}
-                          <span className="inline-block w-0.5 h-4 md:h-5 ml-0.5" style={{ background: 'var(--brand)', animation: 'blink 1s infinite' }} />
+                          <span className="inline-block w-0.5 h-5 ml-1" style={{ background: 'var(--brand)', animation: 'blink 1s infinite' }} />
                         </p>
                       </div>
                     </div>
@@ -274,9 +294,9 @@ export function AIConsole() {
 
                   {isStreaming && !streamingContent && (
                     <div className="flex justify-start">
-                      <div className="flex gap-1 py-2">
+                      <div className="flex gap-2 py-3">
                         {[0, 1, 2].map(i => (
-                          <div key={i} className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--brand)', opacity: 0.5, animation: 'pulse 1.5s ease-in-out infinite', animationDelay: `${i * 0.1}s` }} />
+                          <div key={i} className="w-2 h-2 rounded-full" style={{ background: 'var(--brand)', opacity: 0.4, animation: 'pulse 1.5s ease-in-out infinite', animationDelay: `${i * 0.15}s` }} />
                         ))}
                       </div>
                     </div>
@@ -284,119 +304,107 @@ export function AIConsole() {
                 </div>
               </div>
 
-              {/* 底部固定区域：输入框 + 按钮 + 折叠预设问题 */}
+              {/* Fixed input area at bottom */}
               <div 
                 style={{
-                  flexShrink: 0,
-                  padding: '0.75rem 1.25rem',
-                  background: 'var(--background)',
-                  borderTop: '1px solid var(--border-color)',
+                  position: 'absolute',
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  padding: '1rem 1.25rem',
+                  paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))',
+                  background: 'linear-gradient(to top, var(--background) 80%, transparent)',
+                  backdropFilter: 'blur(10px)',
+                  WebkitBackdropFilter: 'blur(10px)',
                 }}
               >
                 <form onSubmit={handleSend}>
-                  <div className="flex flex-col gap-2">
-                    {/* 输入框 */}
+                  <div className="flex flex-col gap-3">
                     <input
                       ref={inputRef}
                       type="text"
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
-                      placeholder={isStreaming ? 'Response in progress...' : t('chat.placeholder')}
+                      placeholder={isStreaming ? 'Generating...' : t('chat.placeholder')}
                       disabled={isStreaming}
-                      className="w-full px-4 py-3 text-sm md:text-base focus:outline-none disabled:opacity-50"
+                      className="w-full px-4 py-3.5 text-base focus:outline-none disabled:opacity-50"
                       style={{ 
-                        background: 'var(--surface)', 
-                        border: '1px solid var(--border-color)', 
-                        borderRadius: '16px', 
+                        background: 'rgba(255, 255, 255, 0.05)', 
+                        border: '1px solid rgba(127, 231, 196, 0.2)', 
+                        borderRadius: '20px', 
                         color: 'var(--text-main)',
-                        minHeight: '44px',
+                        minHeight: '52px',
                         fontSize: '16px',
                       }}
                     />
                     
-                    {/* 按钮：停止/发送 */}
                     {isStreaming ? (
                       <button 
                         type="button" 
                         onClick={stopStreaming} 
-                        className="w-full py-3 text-sm font-medium flex items-center justify-center gap-2"
+                        className="w-full py-3.5 text-sm font-medium flex items-center justify-center gap-2"
                         style={{ 
-                          background: 'rgba(239, 68, 68, 0.1)', 
+                          background: 'rgba(239, 68, 68, 0.08)', 
                           color: '#ef4444', 
-                          border: '1px solid rgba(239, 68, 68, 0.3)', 
-                          borderRadius: '16px',
-                          minHeight: '44px',
+                          border: '1px solid rgba(239, 68, 68, 0.2)', 
+                          borderRadius: '20px',
+                          minHeight: '52px',
                         }}
                       >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1" fill="currentColor" /></svg>
-                        Stop
+                        Stop Generating
                       </button>
                     ) : (
                       <button 
                         type="submit" 
                         disabled={!input.trim()} 
-                        className="w-full py-3 text-sm font-medium disabled:opacity-50"
+                        className="w-full py-3.5 text-sm font-medium disabled:opacity-50"
                         style={{ 
-                          background: 'var(--surface-active)', 
+                          background: 'rgba(127, 231, 196, 0.08)', 
                           color: 'var(--brand)', 
-                          border: '1px solid var(--border-hover)', 
-                          borderRadius: '16px',
-                          minHeight: '44px',
+                          border: '1px solid rgba(127, 231, 196, 0.2)', 
+                          borderRadius: '20px',
+                          minHeight: '52px',
                         }}
                       >
-                        发送
+                        Send
                       </button>
                     )}
                   </div>
                 </form>
-
-                {/* 折叠预设问题 */}
-                <div style={{ marginTop: '0.5rem' }}>
-                  <button
-                    type="button"
-                    onClick={() => setShowSuggestions(!showSuggestions)}
-                    className="w-full py-2 text-xs flex items-center justify-center gap-1"
-                    style={{ 
-                      color: 'var(--text-secondary)',
-                      opacity: 0.7,
-                    }}
-                  >
-                    {showSuggestions ? '收起问题' : '快捷问题'}
-                    <svg 
-                      className="w-3 h-3 transition-transform" 
-                      style={{ transform: showSuggestions ? 'rotate(180deg)' : 'rotate(0deg)' }}
-                      fill="none" 
-                      viewBox="0 0 24 24" 
-                      stroke="currentColor"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                  
-                  {showSuggestions && (
-                    <div className="flex flex-wrap gap-1.5 mt-2">
-                      {suggestedQuestions.slice(0, 4).map((question, index) => (
-                        <button
-                          key={index}
-                          type="button"
-                          onClick={() => handleSuggestedQuestion(question)}
-                          disabled={isStreaming}
-                          className="px-2.5 py-1.5 text-xs transition-all duration-200 disabled:opacity-40"
-                          style={{ 
-                            background: 'var(--surface)', 
-                            border: '1px solid var(--border-color)', 
-                            borderRadius: '12px', 
-                            color: 'var(--text-secondary)',
-                            minHeight: '36px',
-                          }}
-                        >
-                          {question}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
               </div>
+            </div>
+
+            {/* Floating preset questions - outside the main card */}
+            <div 
+              className="flex flex-wrap gap-2 mt-4"
+              style={{ 
+                justifyContent: 'center',
+                opacity: isStreaming ? 0.3 : 1,
+                pointerEvents: isStreaming ? 'none' : 'auto',
+                transition: 'opacity 0.3s ease',
+              }}
+            >
+              {suggestedQuestions.slice(0, 4).map((question, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  onClick={() => handleSuggestedQuestion(question)}
+                  disabled={isStreaming}
+                  className="px-4 py-2 text-xs md:text-sm transition-all duration-300 hover:scale-105"
+                  style={{ 
+                    background: 'rgba(127, 231, 196, 0.05)', 
+                    border: '1px solid rgba(127, 231, 196, 0.15)', 
+                    borderRadius: '20px', 
+                    color: 'var(--text-secondary)',
+                    minHeight: '40px',
+                    backdropFilter: 'blur(10px)',
+                    WebkitBackdropFilter: 'blur(10px)',
+                  }}
+                >
+                  {question}
+                </button>
+              ))}
             </div>
           </div>
         </div>
