@@ -251,7 +251,7 @@ export function AIConsole() {
                   overflowY: 'auto',
                   overflowX: 'hidden',
                   padding: '1.75rem 1.5rem',
-                  paddingBottom: '8rem',
+                  paddingBottom: '10rem',
                   WebkitOverflowScrolling: 'touch',
                   overscrollBehavior: 'contain',
                 }}
@@ -322,7 +322,7 @@ export function AIConsole() {
                   right: 0,
                   padding: '1.25rem 1.5rem',
                   paddingBottom: 'calc(1.25rem + env(safe-area-inset-bottom))',
-                  background: 'linear-gradient(to top, rgba(10, 10, 10, 0.98) 70%, transparent)',
+                  background: 'linear-gradient(to top, rgba(10, 10, 10, 0.98) 60%, transparent)',
                   backdropFilter: 'blur(12px)',
                   WebkitBackdropFilter: 'blur(12px)',
                 }}
