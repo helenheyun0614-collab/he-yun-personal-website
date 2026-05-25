@@ -28,6 +28,10 @@ export async function POST(req: NextRequest) {
     const { messages } = await req.json()
 
     const detectedLang = detectLanguage(messages)
+    
+    // 检测是否需要联网搜索
+    const lastMessage = messages[messages.length - 1]?.content || ''
+    const needsSearch = /搜索|新闻|今日|今天|最新|recent|news|today|search/i.test(lastMessage)
 
     const systemMessage = {
       role: 'system',
@@ -53,7 +57,7 @@ export async function POST(req: NextRequest) {
 聚焦影响、研究方向、组织变革、生态演化、人类影响、长期转变。提供原创视角，不只是表面描述。
 
 回答AI新闻：
-总结新闻背后的信号，解释为什么重要，不机械堆砌头条。`
+总结新闻背后的信号，解释为什么重要，不机械堆砌头条。使用搜索工具获取最新信息后，提炼关键趋势。`
         : `You are Helen Heyun, an observer of AGI ecosystems.
 
 Identity:
@@ -75,10 +79,29 @@ When discussing AI topics:
 Focus on implications, research direction, organizational change, ecosystem evolution, human impact, long-term shifts. Provide original perspective, not just surface descriptions.
 
 When answering AI news:
-Summarize the signal behind the news, explain why it matters, don't mechanically dump headlines.`
+Summarize the signal behind the news, explain why it matters, don't mechanically dump headlines. Use search tools to get latest info, then extract key trends.`
     }
 
     const allMessages = [systemMessage, ...messages]
+
+    // 构建请求体
+    const requestBody: any = {
+      model: 'glm-4-flash',
+      messages: allMessages,
+      stream: true,
+      temperature: 0.75,
+      max_tokens: 1500,
+    }
+
+    // 如果需要搜索，添加工具
+    if (needsSearch) {
+      requestBody.tools = [{
+        type: 'web_search',
+        web_search: {
+          enable: true
+        }
+      }]
+    }
 
     const response = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
       method: 'POST',
@@ -86,13 +109,7 @@ Summarize the signal behind the news, explain why it matters, don't mechanically
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${process.env.GLM_API_KEY}`,
       },
-      body: JSON.stringify({
-        model: 'glm-4-flash',
-        messages: allMessages,
-        stream: true,
-        temperature: 0.75,
-        max_tokens: 1500,
-      }),
+      body: JSON.stringify(requestBody),
     })
 
     if (!response.ok) {
