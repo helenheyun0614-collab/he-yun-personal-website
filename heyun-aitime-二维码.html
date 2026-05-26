@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Helen Heyun · AI Time</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #05070a;
+            --panel: rgba(255, 255, 255, 0.08);
+            --panel-strong: rgba(255, 255, 255, 0.14);
+            --text: #f7f4ee;
+            --muted: rgba(247, 244, 238, 0.68);
+            --soft: rgba(247, 244, 238, 0.48);
+            --line: rgba(255, 255, 255, 0.14);
+            --accent: #8ff0d2;
+            --accent-2: #f4c96a;
+            --ink: #0a1012;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            margin: 0;
+            display: grid;
+            place-items: center;
+            padding: 32px 18px;
+            background:
+                radial-gradient(circle at 20% 16%, rgba(143, 240, 210, 0.18), transparent 26%),
+                radial-gradient(circle at 82% 12%, rgba(244, 201, 106, 0.16), transparent 24%),
+                linear-gradient(145deg, #05070a 0%, #10131d 52%, #08090c 100%);
+            color: var(--text);
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        .poster {
+            width: min(100%, 440px);
+            position: relative;
+            overflow: hidden;
+            padding: 28px;
+            border: 1px solid var(--line);
+            border-radius: 28px;
+            background:
+                linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.04)),
+                rgba(8, 10, 14, 0.82);
+            box-shadow: 0 28px 80px rgba(0, 0, 0, 0.42);
+        }
+
+        .poster::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background-image:
+                linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+            background-size: 28px 28px;
+            mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.5), transparent 68%);
+        }
+
+        .content {
+            position: relative;
+            z-index: 1;
+        }
+
+        .eyebrow {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            margin-bottom: 34px;
+            color: var(--soft);
+            font-size: 11px;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+        }
+
+        .mark {
+            width: 34px;
+            height: 34px;
+            display: grid;
+            place-items: center;
+            border: 1px solid rgba(143, 240, 210, 0.34);
+            border-radius: 50%;
+            color: var(--accent);
+            font-family: Georgia, serif;
+            font-size: 17px;
+            font-style: italic;
+        }
+
+        h1 {
+            margin: 0;
+            max-width: 9em;
+            color: var(--text);
+            font-family: Georgia, "Times New Roman", serif;
+            font-size: clamp(40px, 11vw, 58px);
+            font-weight: 400;
+            line-height: 0.95;
+            letter-spacing: -0.03em;
+        }
+
+        .subtitle {
+            max-width: 26em;
+            margin: 18px 0 30px;
+            color: var(--muted);
+            font-size: 15px;
+            line-height: 1.75;
+        }
+
+        .qr-shell {
+            padding: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 24px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.08));
+        }
+
+        .qr-card {
+            padding: 18px;
+            border-radius: 18px;
+            background: #ffffff;
+            box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
+        }
+
+        .qr-card img {
+            display: block;
+            width: 100%;
+            height: auto;
+            aspect-ratio: 1;
+            object-fit: contain;
+        }
+
+        .scan-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-top: 18px;
+        }
+
+        .scan-copy {
+            color: var(--text);
+            font-size: 15px;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+        }
+
+        .scan-copy span {
+            display: block;
+            margin-top: 5px;
+            color: var(--soft);
+            font-size: 12px;
+            font-weight: 400;
+            letter-spacing: 0;
+        }
+
+        .arrow {
+            width: 44px;
+            height: 44px;
+            display: grid;
+            place-items: center;
+            flex: 0 0 auto;
+            border: 1px solid rgba(143, 240, 210, 0.35);
+            border-radius: 50%;
+            color: var(--ink);
+            background: var(--accent);
+            font-size: 22px;
+            line-height: 1;
+        }
+
+        .url {
+            margin-top: 20px;
+            padding: 13px 15px;
+            overflow-wrap: anywhere;
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            background: rgba(0, 0, 0, 0.22);
+            color: rgba(247, 244, 238, 0.78);
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-top: 28px;
+            padding-top: 20px;
+            border-top: 1px solid var(--line);
+            color: var(--soft);
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .tag {
+            color: var(--accent-2);
+            font-size: 11px;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        @media (max-width: 420px) {
+            body {
+                padding: 18px 12px;
+            }
+
+            .poster {
+                padding: 22px;
+                border-radius: 24px;
+            }
+
+            .footer {
+                align-items: flex-start;
+                flex-direction: column;
+                gap: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="poster" aria-label="Helen Heyun AI Time QR code poster">
+        <div class="content">
+            <div class="eyebrow">
+                <span>AI Time · Personal Site</span>
+                <span class="mark">H</span>
+            </div>
+
+            <h1>Helen Heyun</h1>
+            <p class="subtitle">AI 生态观察者。聊模型、Agent、组织变化，以及智能如何真正进入现实工作流。</p>
+
+            <section class="qr-shell" aria-label="扫码访问">
+                <div class="qr-card">
+                    <img src="heyun-aitime-qrcode-large.png" alt="访问 Helen Heyun AI Time 的二维码" width="300" height="300">
+                </div>
+            </section>
+
+            <div class="scan-row">
+                <div class="scan-copy">
+                    扫码进入 AI Time
+                    <span>移动端访问更自然，适合边走边读。</span>
+                </div>
+                <div class="arrow" aria-hidden="true">↗</div>
+            </div>
+
+            <div class="url">https://heyun.aitime.cn/</div>
+
+            <div class="footer">
+                <span>7 年 AI 运营经验 · 关注 AGI 原生人才生态</span>
+                <span class="tag">Scan to explore</span>
+            </div>
+        </div>
+    </main>
+</body>
+</html>
