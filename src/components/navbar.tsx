@@ -47,7 +47,7 @@ export function Navbar() {
           borderColor: isScrolled ? 'var(--border-color)' : 'transparent'
         }}
       >
-        <div className="px-5 md:px-12 py-4">
+        <div className="px-5 py-3 md:px-12 md:py-4">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
             {/* 左侧：Logo */}
             <div className="flex items-center gap-2">
@@ -56,7 +56,7 @@ export function Navbar() {
                 style={{ background: 'var(--brand)' }}
               />
               <span 
-                className="text-base md:text-lg font-light tracking-tight"
+                className="text-[1.15rem] font-light tracking-tight md:text-lg"
                 style={{ color: 'var(--text-hero)' }}
               >
                 Helen Heyun
@@ -105,7 +105,7 @@ export function Navbar() {
 
               {/* Mobile Menu Button - 确保在右侧 */}
               <button
-                className="md:hidden p-2"
+                className="p-1.5 md:hidden"
                 style={{ color: 'var(--text-main)', minHeight: '44px', minWidth: '44px' }}
                 onClick={() => setIsMenuOpen(true)}
                 aria-label="Open menu"
