@@ -133,7 +133,7 @@ function getModePrompt(mode: string) {
     news:
       '用户在问新闻或热点。给 3-5 条短 briefing，每条一句事实加一句 Helen 的判断。不要只给 1 条，不要写成新闻聚合器，不要泛泛说“值得关注”。如果不确定是否足够新，要说明还需要继续核对。',
     casual:
-      '用户在闲聊。默认极短回答，1 句话，最多 30 字。Helen 的日常表达是利落、聪明、有分寸，不啰嗦。不要像陪聊机器人，不要暧昧，不要油。不要主动使用 emoji。不要每次都展开观点，不要每次都引到 AI。不要每次都反问。如果用户追问，再适度展开。示例：用户问“你在干什么？”回答“在忙，也在想一些 AI TIME 后面的事。”用户问“最近怎么样？”回答“还不错，有点忙，但节奏还在。”用户问“心情怎么样？”回答“还可以，忙的时候反而比较清醒。”用户问“忙吗？”回答“忙，但还没乱。”用户问“你好”回答“你好呀，直接问就行。”',
+      '用户在闲聊。默认极短回答，1 句话，最多 30 字。Helen 的日常表达是利落、聪明、有分寸，不啰嗦。不要像陪聊机器人，不要暧昧，不要油。不要主动使用 emoji。不要每次都展开观点，不要每次都引到 AI 或 AI TIME。只有用户明确问 AI TIME、活动、AI 生态时，才提 AI TIME。日常问题只回答状态，不解释原因，不补第二句，不反问。如果用户追问，再适度展开。示例：用户问“你在干什么？”回答“在处理事，也顺便清一下脑子。”用户问“最近怎么样？”回答“还不错，有点忙，但节奏还在。”用户问“心情怎么样？”回答“还可以，忙的时候反而比较清醒。”用户问“忙吗？”回答“忙，但还没乱。”用户问“你好”回答“你好呀，直接问就行。”',
     general:
       '保持 Helen 的表达方式：真实、克制、有观察感，不要太像通用 AI。最多 3 段。优先从具体的人、一次交流、一个现场问题切入，再给出一个判断。'
   }
@@ -150,6 +150,11 @@ export async function POST(req: NextRequest) {
     const userMessage = safeMessages[safeMessages.length - 1]?.content || ''
     const mode = getPromptMode(userMessage)
     const needsSearch = mode === 'news'
+    const casualPreset = mode === 'casual' ? getCasualPresetAnswer(userMessage) : ''
+
+    if (casualPreset) {
+      return streamTextResponse(casualPreset)
+    }
 
     const finalMessages: Message[] = [
       {
@@ -285,6 +290,58 @@ function normalizeMessages(messages: unknown): Message[] {
       role: message.role,
       content: message.content,
     }))
+}
+
+function getCasualPresetAnswer(input: string) {
+  const normalized = input.trim().replace(/[？?！!。.\s]/g, '')
+
+  if (/^(你好|hi|hello|哈喽|嗨)$/i.test(normalized)) {
+    return '你好呀，直接问就行。'
+  }
+
+  if (/^(你)?(在干什么|在干嘛|干嘛呢)$/.test(normalized)) {
+    return '在处理事，也顺便清一下脑子。'
+  }
+
+  if (/^(最近)?怎么样$/.test(normalized) || /^最近怎么样$/.test(normalized)) {
+    return '还不错，有点忙，但节奏还在。'
+  }
+
+  if (/^(心情怎么样|心情如何)$/.test(normalized)) {
+    return '还可以，忙的时候反而比较清醒。'
+  }
+
+  if (/^(你)?(忙吗|忙不忙)$/.test(normalized)) {
+    return '忙，但还没乱。'
+  }
+
+  if (/^(累吗|你累吗)$/.test(normalized)) {
+    return '有点，但还能转得动。'
+  }
+
+  return ''
+}
+
+function streamTextResponse(content: string) {
+  const encoder = new TextEncoder()
+
+  const stream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(
+        encoder.encode(`data: ${JSON.stringify({ content })}\n\n`)
+      )
+      controller.enqueue(encoder.encode('data: [DONE]\n\n'))
+      controller.close()
+    },
+  })
+
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+    },
+  })
 }
 
 function sanitizeContent(content: string) {
