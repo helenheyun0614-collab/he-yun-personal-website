@@ -79,7 +79,7 @@ export function ChatSidebar({
         className={`
           fixed md:relative
           top-0 left-0
-          h-screen
+          h-screen md:h-auto
           z-50 md:z-0
           transition-all duration-300 ease-in-out
           ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
