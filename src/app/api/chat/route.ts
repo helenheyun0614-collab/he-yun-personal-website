@@ -30,6 +30,18 @@ interface NewsResult {
   link: string
 }
 
+interface NewsFeed {
+  source: string
+  url: string
+}
+
+const DIRECT_NEWS_FEEDS: NewsFeed[] = [
+  { source: 'The Verge AI', url: 'https://www.theverge.com/rss/ai-artificial-intelligence/index.xml' },
+  { source: 'TechCrunch AI', url: 'https://techcrunch.com/category/artificial-intelligence/feed/' },
+  { source: 'VentureBeat AI', url: 'https://venturebeat.com/category/ai/feed/' },
+  { source: 'MIT Technology Review AI', url: 'https://www.technologyreview.com/topic/artificial-intelligence/feed/' },
+]
+
 const TRUSTED_NEWS_SOURCES = [
   'reuters',
   'bloomberg',
@@ -53,7 +65,7 @@ const TRUSTED_NEWS_SOURCES = [
 
 const OFFICIAL_NEWS_SOURCES = /openai|anthropic|google deepmind|deepmind|meta ai|microsoft ai|microsoft|nvidia/i
 
-const LOW_QUALITY_NEWS_PATTERNS = /概念股|涨停|个股|A股|美股|港股|股票|股价|shares jump|buys stake|fund buys|holdings|NASDAQ|NYSE|token|ETH|WLD|crypto|加密货币|行情|研报|机构预测|梳理|获奖|荣膺|直播预告|发布会预告|报名|活动预告|招聘|融资快讯|地方政治|lobbyist|FERC|cnBeta|同花顺|证券时报|获奖|会议|论坛|白皮书|company announcement/i
+const LOW_QUALITY_NEWS_PATTERNS = /概念股|涨停|个股|A股|美股|港股|股票|股价|stock trading|trade stocks|shares jump|buys stake|fund buys|holdings|NASDAQ|NYSE|token|ETH|WLD|crypto|加密货币|行情|研报|机构预测|梳理|获奖|荣膺|直播预告|发布会预告|报名|活动预告|招聘|融资快讯|地方政治|lobbyist|FERC|cnBeta|同花顺|证券时报|获奖|会议|论坛|白皮书|company announcement|can't spell|can’t spell|cannot spell|spell|拼写/i
 
 const GLOBAL_AI_NEWS_PATTERNS = /OpenAI|Google|Anthropic|Meta|Microsoft|Nvidia|DeepMind|xAI|Mistral|DeepSeek|Qwen|Gemini|Claude|GPT|Llama|agent|智能体|coding|code|多模态|multimodal|video generation|视频生成|robotics|机器人|大模型|AI 安全|安全法案|audit|审计|regulation|监管|copyright|版权|lawsuit|诉讼|subscription|订阅|data center|数据中心|energy|能源|cloud|云|chip|GPU|算力|model|模型|acquisition|并购|funding|融资|commercialization|商业化/i
 
@@ -250,9 +262,10 @@ async function fetchLatestAINews(language: string): Promise<NewsResult[]> {
         'site:blogs.nvidia.com AI GPU data center model when:1d',
       ]
 
-  const settled = await Promise.allSettled(
-    queries.map((query) => fetchGoogleNews(query, language))
-  )
+  const settled = await Promise.allSettled([
+    ...DIRECT_NEWS_FEEDS.map((feed) => fetchDirectNewsFeed(feed)),
+    ...queries.map((query) => fetchGoogleNews(query, language)),
+  ])
 
   const results = settled.flatMap((item) => item.status === 'fulfilled' ? item.value : [])
   const seen = new Set<string>()
@@ -268,7 +281,28 @@ async function fetchLatestAINews(language: string): Promise<NewsResult[]> {
       seen.add(key)
       return true
     })
-    .slice(0, 5)
+    .slice(0, 8)
+}
+
+async function fetchDirectNewsFeed(feed: NewsFeed): Promise<NewsResult[]> {
+  const response = await fetch(feed.url, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (compatible; HelenWebsite/1.0)',
+    },
+    next: { revalidate: 900 },
+  })
+
+  if (!response.ok) return []
+
+  const xml = await response.text()
+  const blocks = xml.match(/<(item|entry)>[\s\S]*?<\/\1>/g) || []
+
+  return blocks.map((block) => ({
+    title: decodeXml(getXmlValue(block, 'title')).trim(),
+    source: feed.source,
+    publishedAt: decodeXml(getXmlValue(block, 'pubDate') || getXmlValue(block, 'published') || getXmlValue(block, 'updated')),
+    link: decodeXml(getXmlValue(block, 'link') || getAtomLink(block)),
+  })).filter((item) => item.title && item.publishedAt && item.link && !item.link.includes('news.google.com'))
 }
 
 async function fetchGoogleNews(query: string, language: string): Promise<NewsResult[]> {
@@ -307,14 +341,14 @@ async function fetchGoogleNews(query: string, language: string): Promise<NewsRes
 function formatNewsResponse(results: NewsResult[], language: string) {
   if (results.length === 0) {
     return language === 'zh'
-      ? '我刚刚联网查了，但没有拿到今天或近 36 小时内可核验的 AI 新闻结果。这个时候我宁可说没搜到，也不想拿旧新闻糊弄你。'
-      : 'I searched live, but did not get verifiable AI news from today or the last 36 hours. I would rather say that than pad it with stale news.'
+      ? '我刚刚联网查了 The Verge、TechCrunch、VentureBeat、MIT Technology Review 和 Google News 的高质量来源，但没有拿到今天或过去 48 小时内足够重要、可核验的 AI 前沿新闻。这个时候我宁可说没搜到，也不拿股价、通稿或旧新闻糊弄你。'
+      : 'I searched The Verge, TechCrunch, VentureBeat, MIT Technology Review, and high-quality Google News sources, but did not get enough verifiable frontier AI news from today or the last 48 hours. I would rather say that than pad it with stocks, PR, or stale news.'
   }
 
-  const selected = results.slice(0, 5)
+  const selected = results.slice(0, 3)
   const expandedTo48Hours = selected.some((item) => !isTodayNews(item))
 
-  const items = selected.slice(0, 3).map((item, index) => {
+  const items = selected.map((item, index) => {
     const time = formatNewsTime(item.publishedAt, language)
     const judgment = getNewsJudgment(item.title, language)
     const importance = getNewsImportance(item.title, language)
@@ -335,13 +369,25 @@ Helen's take: ${judgment}`
   })
 
   const prefix = language === 'zh'
-    ? `我刚刚联网查了，只保留高质量来源里和全球 AI 动态相关的 ${items.length} 条${expandedTo48Hours ? '。今天足够硬的新闻不多，所以放宽到了过去 48 小时' : ''}：`
-    : `I just searched live and kept ${items.length} items from higher-quality sources that matter for global AI${expandedTo48Hours ? '. There were not enough strong items from today, so I expanded to the last 48 hours' : ''}:`
+    ? `我刚刚联网查了，只保留对全球 AI 行业有实质影响的 ${items.length} 条${expandedTo48Hours ? '。今天足够硬的新闻不多，所以放宽到了过去 48 小时' : ''}：`
+    : `I just searched live and kept ${items.length} items with substantial impact on the global AI industry${expandedTo48Hours ? '. There were not enough strong items from today, so I expanded to the last 48 hours' : ''}:`
 
   return `${prefix}\n\n${items.join('\n\n')}`
 }
 
 function getNewsImportance(title: string, language: string) {
+  if (/payment|payments|支付/i.test(title)) {
+    return language === 'zh'
+      ? '支付是 Agent 从“回答问题”走向“替人执行任务”的关键边界。'
+      : 'Payments are a key boundary where agents move from answering questions to executing tasks.'
+  }
+
+  if (/acquisition|acquire|merger|funding|raises|valuation|partnership|并购|收购|融资|估值|合作/i.test(title)) {
+    return language === 'zh'
+      ? '头部公司的资本和合作动作，往往会重新分配人才、算力和渠道。'
+      : 'Capital and partnership moves by major players often redistribute talent, compute, and channels.'
+  }
+
   if (/model|模型|GPT|Claude|Gemini|Llama|DeepSeek|Qwen|Mistral|xAI/i.test(title)) {
     return language === 'zh'
       ? '模型能力或产品入口的变化，会直接影响开发者生态和应用迭代速度。'
@@ -372,18 +418,24 @@ function getNewsImportance(title: string, language: string) {
       : 'Commercialization decides whether AI moves from novelty tools to sustainable products.'
   }
 
-  if (/acquisition|acquire|merger|funding|partnership|并购|收购|融资|合作/i.test(title)) {
-    return language === 'zh'
-      ? '头部公司的资本和合作动作，往往会重新分配人才、算力和渠道。'
-      : 'Capital and partnership moves by major players often redistribute talent, compute, and channels.'
-  }
-
   return language === 'zh'
     ? '它值得保留，是因为可能影响模型、产品、算力、监管或商业格局中的一个关键变量。'
     : 'It is worth keeping because it may affect a key variable in models, products, compute, regulation, or the business landscape.'
 }
 
 function getNewsJudgment(title: string, language: string) {
+  if (/payment|payments|支付/i.test(title)) {
+    return language === 'zh'
+      ? 'Agent 一旦接入支付，就不只是“建议工具”，而是在进入真实执行链路，风险和价值都会被放大。'
+      : 'Once agents touch payments, they stop being suggestion tools and enter real execution chains, where both value and risk get amplified.'
+  }
+
+  if (/acquisition|acquire|merger|并购|收购|funding|融资|raises|valuation|估值/i.test(title)) {
+    return language === 'zh'
+      ? '资本动作本身不是重点，重点是它会把人才、算力和产品节奏重新排布。'
+      : 'The capital move itself is not the point; it reshuffles talent, compute, and product pace.'
+  }
+
   if (/agent|智能体|agents/i.test(title)) {
     return language === 'zh'
       ? '我会看它是不是真的进入工作流，而不只是换一个更热的名字。'
@@ -412,12 +464,6 @@ function getNewsJudgment(title: string, language: string) {
     return language === 'zh'
       ? '这说明 AI 产品开始进入付费分层，关键不是能不能收费，而是用户会不会长期续费。'
       : 'This points to paid tiers for AI products; the real question is whether users keep paying over time.'
-  }
-
-  if (/acquisition|acquire|merger|并购|收购|funding|融资/i.test(title)) {
-    return language === 'zh'
-      ? '资本动作本身不是重点，重点是它会把人才、算力和产品节奏重新排布。'
-      : 'The capital move itself is not the point; it reshuffles talent, compute, and product pace.'
   }
 
   if (/coding|code|developer|编程|代码/i.test(title)) {
@@ -536,6 +582,14 @@ function getXmlValue(xml: string, tag: string) {
   return match?.[1]?.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1') || ''
 }
 
+function getAtomLink(xml: string) {
+  const alternate = xml.match(/<link[^>]+rel=["']alternate["'][^>]+href=["']([^"']+)["'][^>]*>/i)
+  if (alternate?.[1]) return alternate[1]
+
+  const href = xml.match(/<link[^>]+href=["']([^"']+)["'][^>]*>/i)
+  return href?.[1] || ''
+}
+
 function decodeXml(value: string) {
   return value
     .replace(/&amp;/g, '&')
@@ -543,6 +597,8 @@ function decodeXml(value: string) {
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCharCode(parseInt(code, 16)))
 }
 
 function streamTextResponse(content: string) {
