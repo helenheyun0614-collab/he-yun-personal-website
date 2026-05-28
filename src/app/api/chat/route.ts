@@ -50,7 +50,7 @@ const TRUSTED_NEWS_SOURCES = [
 
 const OFFICIAL_NEWS_SOURCES = /openai|anthropic|google deepmind|deepmind|meta ai|nvidia/i
 
-const LOW_QUALITY_NEWS_PATTERNS = /概念股|涨停|个股|A股|美股|港股|股票|股价|行情|研报|机构预测|梳理|获奖|荣膺|直播预告|发布会预告|报名|活动预告|招聘|融资快讯|地方政治|lobbyist|FERC|cnBeta|同花顺|证券时报|获奖|会议|论坛|白皮书/i
+const LOW_QUALITY_NEWS_PATTERNS = /概念股|涨停|个股|A股|美股|港股|股票|股价|shares jump|buys stake|fund buys|holdings|NASDAQ|NYSE|token|ETH|WLD|crypto|加密货币|行情|研报|机构预测|梳理|获奖|荣膺|直播预告|发布会预告|报名|活动预告|招聘|融资快讯|地方政治|lobbyist|FERC|cnBeta|同花顺|证券时报|获奖|会议|论坛|白皮书|company announcement/i
 
 const GLOBAL_AI_NEWS_PATTERNS = /OpenAI|Google|Anthropic|Meta|Microsoft|Nvidia|DeepMind|xAI|Mistral|DeepSeek|Qwen|Gemini|Claude|GPT|Llama|agent|智能体|coding|code|多模态|multimodal|video generation|视频生成|robotics|机器人|大模型|AI 安全|安全法案|audit|审计|regulation|监管|copyright|版权|lawsuit|诉讼|subscription|订阅|data center|数据中心|energy|能源|cloud|云|chip|GPU|算力|model|模型|acquisition|并购|funding|融资|commercialization|商业化/i
 
@@ -97,9 +97,8 @@ export async function POST(req: NextRequest) {
   try {
     const { messages } = await req.json()
 
-    const detectedLang = detectLanguage(messages)
-    
     const lastMessage = messages[messages.length - 1]?.content || ''
+    const detectedLang = detectLanguage(lastMessage)
     const needsSearch = /搜索|新闻|今日|今天|最新|recent|news|today|search/i.test(lastMessage)
     const recentMessages = Array.isArray(messages) ? messages.slice(-6) : []
 
@@ -301,13 +300,19 @@ function formatNewsResponse(results: NewsResult[], language: string) {
 
   const items = results.slice(0, 3).map((item, index) => {
     const time = formatNewsTime(item.publishedAt, language)
-    const judgment = getNewsJudgment(item.title)
+    const judgment = getNewsJudgment(item.title, language)
 
-    return `${index + 1}. ${item.title}
+    return language === 'zh'
+      ? `${index + 1}. ${item.title}
 来源：${item.source}
 时间：${time}
 链接：${item.link}
 Helen 看法：${judgment}`
+      : `${index + 1}. ${item.title}
+Source: ${item.source}
+Time: ${time}
+Link: ${item.link}
+Helen's take: ${judgment}`
   })
 
   const prefix = language === 'zh'
@@ -317,24 +322,64 @@ Helen 看法：${judgment}`
   return `${prefix}\n\n${items.join('\n\n')}`
 }
 
-function getNewsJudgment(title: string) {
+function getNewsJudgment(title: string, language: string) {
   if (/agent|智能体|agents/i.test(title)) {
-    return '我会看它是不是真的进入工作流，而不只是换一个更热的名字。'
+    return language === 'zh'
+      ? '我会看它是不是真的进入工作流，而不只是换一个更热的名字。'
+      : 'I would watch whether this actually enters workflows, not just whether it gets a hotter name.'
   }
 
   if (/safety|安全|监管|law|audit|risk|policy/i.test(title)) {
-    return '这类新闻说明 AI 已经从“能不能做”进入“谁来负责”的阶段。'
+    return language === 'zh'
+      ? '这类新闻说明 AI 已经从“能不能做”进入“谁来负责”的阶段。'
+      : 'This is AI moving from “can we build it” to “who verifies and takes responsibility.”'
   }
 
   if (/chip|GPU|Nvidia|芯片|算力/i.test(title)) {
-    return '算力还是底层变量，但真正的分化会出现在谁能把算力变成可用产品。'
+    return language === 'zh'
+      ? '算力还是底层变量，但真正的分化会出现在谁能把算力变成可用产品。'
+      : 'Compute is still the base variable, but the real gap is who can turn it into usable products.'
+  }
+
+  if (/data center|数据中心|energy|能源|cloud|AWS|Azure|Google Cloud/i.test(title)) {
+    return language === 'zh'
+      ? 'AI 的竞争越来越像基础设施竞争，电力、云和数据中心会变成更硬的约束。'
+      : 'AI competition is becoming infrastructure competition; power, cloud, and data centers are harder constraints now.'
+  }
+
+  if (/subscription|pricing|订阅|定价|commercialization|商业化/i.test(title)) {
+    return language === 'zh'
+      ? '这说明 AI 产品开始进入付费分层，关键不是能不能收费，而是用户会不会长期续费。'
+      : 'This points to paid tiers for AI products; the real question is whether users keep paying over time.'
+  }
+
+  if (/acquisition|acquire|merger|并购|收购|funding|融资/i.test(title)) {
+    return language === 'zh'
+      ? '资本动作本身不是重点，重点是它会把人才、算力和产品节奏重新排布。'
+      : 'The capital move itself is not the point; it reshuffles talent, compute, and product pace.'
+  }
+
+  if (/coding|code|developer|编程|代码/i.test(title)) {
+    return language === 'zh'
+      ? 'Coding 是智能体最容易先落地的场景，因为结果能被验证，工作流也足够高频。'
+      : 'Coding is one of the first real agent workflows because outputs are testable and usage is frequent.'
+  }
+
+  if (/video|multimodal|多模态|视频|robot|robotics|机器人/i.test(title)) {
+    return language === 'zh'
+      ? '这类进展值得看，因为它会把 AI 从文字窗口推向更真实的产品形态。'
+      : 'This matters because it pushes AI beyond the text box into more concrete product forms.'
   }
 
   if (/OpenAI|Google|Anthropic|Meta|DeepSeek|Gemini|Claude|GPT/i.test(title)) {
-    return '大公司动作值得看，但我更关心它会不会改变普通人的使用习惯。'
+    return language === 'zh'
+      ? '头部公司的动作不只看声量，要看它有没有改变用户入口和行业节奏。'
+      : 'For big labs, I care less about the noise and more about whether they shift user entry points and industry tempo.'
   }
 
-  return '这不是单条新闻的问题，它反映的是 AI 正在更深地进入产业和组织。'
+  return language === 'zh'
+    ? '这条如果要保留，重点应该是它是否改变模型、产品、算力、监管或商业格局。'
+    : 'I would keep this only if it changes models, products, compute, regulation, or the business landscape.'
 }
 
 function formatNewsTime(value: string, language: string) {
@@ -433,10 +478,7 @@ function streamTextResponse(content: string) {
   })
 }
 
-function detectLanguage(messages: Message[]): string {
-  const recentMessages = messages.slice(-3)
-  const text = recentMessages.map(m => m.content).join(' ')
-  
+function detectLanguage(text: string): string {
   const chineseChars = text.match(/[\u4e00-\u9fff]/g) || []
   const totalChars = text.replace(/\s/g, '').length
   
