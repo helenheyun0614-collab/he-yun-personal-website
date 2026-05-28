@@ -31,34 +31,30 @@ interface NewsResult {
 }
 
 const TRUSTED_NEWS_SOURCES = [
-  'wired',
-  'the verge',
-  'wall street journal',
-  'wsj',
   'reuters',
   'bloomberg',
-  'cnbc',
   'financial times',
   'ft',
-  'techcrunch',
   'the information',
-  'associated press',
-  'ap news',
-  'axios',
+  'the verge',
+  'techcrunch',
+  'wired',
   'mit technology review',
-  'nature',
-  'science',
-  '新京报',
-  '财新',
-  '第一财经',
-  '36氪',
-  '量子位',
-  '机器之心',
+  'openai',
+  'anthropic',
+  'google deepmind',
+  'deepmind',
+  'meta ai',
+  'nvidia',
 ]
 
-const LOW_QUALITY_NEWS_PATTERNS = /概念股|涨停|个股|A股|美股|港股|股票|股价|行情|研报|机构预测|梳理|获奖|荣膺|直播预告|发布会预告|报名|活动预告|招聘|融资快讯|地方政治|lobbyist|FERC/i
+const OFFICIAL_NEWS_SOURCES = /openai|anthropic|google deepmind|deepmind|meta ai|nvidia/i
 
-const GLOBAL_AI_NEWS_PATTERNS = /OpenAI|Google|Anthropic|Meta|Microsoft|Nvidia|DeepMind|DeepSeek|Gemini|Claude|GPT|Llama|agent|智能体|大模型|AI 安全|安全法案|audit|审计|regulation|监管|subscription|订阅|data center|数据中心|chip|GPU|算力|model|模型/i
+const LOW_QUALITY_NEWS_PATTERNS = /概念股|涨停|个股|A股|美股|港股|股票|股价|行情|研报|机构预测|梳理|获奖|荣膺|直播预告|发布会预告|报名|活动预告|招聘|融资快讯|地方政治|lobbyist|FERC|cnBeta|同花顺|证券时报|获奖|会议|论坛|白皮书/i
+
+const GLOBAL_AI_NEWS_PATTERNS = /OpenAI|Google|Anthropic|Meta|Microsoft|Nvidia|DeepMind|xAI|Mistral|DeepSeek|Qwen|Gemini|Claude|GPT|Llama|agent|智能体|coding|code|多模态|multimodal|video generation|视频生成|robotics|机器人|大模型|AI 安全|安全法案|audit|审计|regulation|监管|copyright|版权|lawsuit|诉讼|subscription|订阅|data center|数据中心|energy|能源|cloud|云|chip|GPU|算力|model|模型|acquisition|并购|funding|融资|commercialization|商业化/i
+
+const OFFICIAL_MAJOR_RELEASE_PATTERNS = /launch|release|introduc|announce|model|API|agent|coding|multimodal|video|robot|safety|alignment|compute|GPU|data center|partnership|acquisition|pricing|subscription|发布|推出|模型|智能体|多模态|视频|机器人|安全|对齐|算力|合作|并购|定价|订阅/i
 
 const HELEN_SYSTEM_PROMPT = `
 你是 Helen 的个人 AI 交互界面，不是通用 AI 助手。
@@ -218,16 +214,34 @@ export async function POST(req: NextRequest) {
 async function fetchLatestAINews(language: string): Promise<NewsResult[]> {
   const queries = language === 'zh'
     ? [
-        'OpenAI OR Google OR Anthropic OR Meta AI 最新 when:1d',
-        'AI 安全 法案 审计 监管 智能体 订阅 when:1d',
-        'site:wired.com OR site:theverge.com OR site:wsj.com AI when:1d',
-        'site:bjnews.com.cn OR site:yicai.com AI 智能体 when:1d',
+        'site:reuters.com AI OpenAI OR Anthropic OR Google OR Meta when:1d',
+        'site:bloomberg.com AI OpenAI OR Anthropic OR Nvidia when:1d',
+        'site:ft.com AI OpenAI OR Anthropic OR Nvidia when:1d',
+        'site:theinformation.com AI OpenAI OR Anthropic OR Meta when:1d',
+        'site:theverge.com/ai AI OpenAI OR Google OR Anthropic OR Meta when:1d',
+        'site:techcrunch.com/category/artificial-intelligence AI agent model when:1d',
+        'site:wired.com AI safety regulation model when:1d',
+        'site:technologyreview.com AI model agent safety when:1d',
+        'site:openai.com/news OpenAI model agent API when:1d',
+        'site:anthropic.com/news Claude model agent safety when:1d',
+        'site:deepmind.google/discover/blog Gemini model robotics when:1d',
+        'site:ai.meta.com/blog Llama Meta AI model when:1d',
+        'site:blogs.nvidia.com AI GPU data center model when:1d',
       ]
     : [
-        'OpenAI OR Google OR Anthropic OR Meta AI latest when:1d',
-        'AI safety law audit regulation agents subscription when:1d',
-        'site:wired.com OR site:theverge.com OR site:wsj.com AI when:1d',
-        'site:reuters.com OR site:cnbc.com OR site:techcrunch.com AI when:1d',
+        'site:reuters.com AI OpenAI OR Anthropic OR Google OR Meta when:1d',
+        'site:bloomberg.com AI OpenAI OR Anthropic OR Nvidia when:1d',
+        'site:ft.com AI OpenAI OR Anthropic OR Nvidia when:1d',
+        'site:theinformation.com AI OpenAI OR Anthropic OR Meta when:1d',
+        'site:theverge.com/ai AI OpenAI OR Google OR Anthropic OR Meta when:1d',
+        'site:techcrunch.com/category/artificial-intelligence AI agent model when:1d',
+        'site:wired.com AI safety regulation model when:1d',
+        'site:technologyreview.com AI model agent safety when:1d',
+        'site:openai.com/news OpenAI model agent API when:1d',
+        'site:anthropic.com/news Claude model agent safety when:1d',
+        'site:deepmind.google/discover/blog Gemini model robotics when:1d',
+        'site:ai.meta.com/blog Llama Meta AI model when:1d',
+        'site:blogs.nvidia.com AI GPU data center model when:1d',
       ]
 
   const settled = await Promise.allSettled(
@@ -353,16 +367,25 @@ function isHighQualityAINews(item: NewsResult) {
   if (LOW_QUALITY_NEWS_PATTERNS.test(combined)) return false
   if (!GLOBAL_AI_NEWS_PATTERNS.test(combined)) return false
 
-  return TRUSTED_NEWS_SOURCES.some((trusted) => source.includes(trusted))
+  const trusted = TRUSTED_NEWS_SOURCES.some((trustedSource) => source.includes(trustedSource))
+  if (!trusted) return false
+
+  if (OFFICIAL_NEWS_SOURCES.test(source)) {
+    return OFFICIAL_MAJOR_RELEASE_PATTERNS.test(combined)
+  }
+
+  return true
 }
 
 function getNewsScore(item: NewsResult) {
   const combined = `${item.title} ${item.source}`
   let score = 0
 
-  if (/wired|the verge|wall street journal|wsj|reuters|bloomberg|cnbc|techcrunch|the information/i.test(combined)) score += 4
-  if (/OpenAI|Google|Anthropic|Meta|Microsoft|Nvidia/i.test(combined)) score += 3
-  if (/law|法案|audit|审计|regulation|监管|subscription|订阅|agent|智能体|safety|安全/i.test(combined)) score += 3
+  if (/reuters|bloomberg|financial times|ft|the information/i.test(combined)) score += 5
+  if (/the verge|techcrunch|wired|mit technology review/i.test(combined)) score += 4
+  if (OFFICIAL_NEWS_SOURCES.test(combined)) score += 3
+  if (/OpenAI|Google|Anthropic|Meta|Microsoft|Nvidia|DeepMind|xAI|Mistral|DeepSeek|Qwen/i.test(combined)) score += 3
+  if (/law|法案|audit|审计|regulation|监管|copyright|版权|lawsuit|诉讼|subscription|订阅|agent|智能体|coding|多模态|multimodal|video|robotics|safety|安全|GPU|data center|数据中心|energy|能源/i.test(combined)) score += 3
   if (/exclusive|report|报道|专访|interview/i.test(combined)) score += 1
 
   const published = Date.parse(item.publishedAt)
