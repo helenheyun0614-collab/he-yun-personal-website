@@ -8,7 +8,7 @@ export function Contact() {
   return (
     <section 
       id="contact" 
-      className="section-padding relative"
+      className="section-padding contact-section relative"
       style={{ 
         background: 'linear-gradient(to bottom, transparent, var(--background-secondary))'
       }}

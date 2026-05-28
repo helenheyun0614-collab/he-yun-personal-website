@@ -209,7 +209,7 @@ export function AIConsole() {
     : ["搜索今天的AI热点新闻", "Scaling 之后还剩什么？", "Agent 更像员工还是组织？", "为什么 research taste 很重要？", "什么会比模型更稀缺？", "AI 会重写组织结构吗？"]
 
   return (
-    <section id="interact" className="section-padding relative z-10" style={{ background: 'transparent' }}>
+    <section id="interact" className="section-padding interact-section relative z-10" style={{ background: 'transparent' }}>
       <div className="container-max">
         {/* Title - lighter weight */}
         <div className="mb-4 md:mb-6 lg:mb-8">
