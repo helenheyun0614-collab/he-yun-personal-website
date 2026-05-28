@@ -30,6 +30,36 @@ interface NewsResult {
   link: string
 }
 
+const TRUSTED_NEWS_SOURCES = [
+  'wired',
+  'the verge',
+  'wall street journal',
+  'wsj',
+  'reuters',
+  'bloomberg',
+  'cnbc',
+  'financial times',
+  'ft',
+  'techcrunch',
+  'the information',
+  'associated press',
+  'ap news',
+  'axios',
+  'mit technology review',
+  'nature',
+  'science',
+  '新京报',
+  '财新',
+  '第一财经',
+  '36氪',
+  '量子位',
+  '机器之心',
+]
+
+const LOW_QUALITY_NEWS_PATTERNS = /概念股|涨停|个股|A股|美股|港股|股票|股价|行情|研报|机构预测|梳理|获奖|荣膺|直播预告|发布会预告|报名|活动预告|招聘|融资快讯|地方政治|lobbyist|FERC/i
+
+const GLOBAL_AI_NEWS_PATTERNS = /OpenAI|Google|Anthropic|Meta|Microsoft|Nvidia|DeepMind|DeepSeek|Gemini|Claude|GPT|Llama|agent|智能体|大模型|AI 安全|安全法案|audit|审计|regulation|监管|subscription|订阅|data center|数据中心|chip|GPU|算力|model|模型/i
+
 const HELEN_SYSTEM_PROMPT = `
 你是 Helen 的个人 AI 交互界面，不是通用 AI 助手。
 
@@ -188,12 +218,16 @@ export async function POST(req: NextRequest) {
 async function fetchLatestAINews(language: string): Promise<NewsResult[]> {
   const queries = language === 'zh'
     ? [
-        'AI 人工智能 OpenAI Google Anthropic Meta 最新 when:1d',
-        'AI 大模型 智能体 最新 when:1d',
+        'OpenAI OR Google OR Anthropic OR Meta AI 最新 when:1d',
+        'AI 安全 法案 审计 监管 智能体 订阅 when:1d',
+        'site:wired.com OR site:theverge.com OR site:wsj.com AI when:1d',
+        'site:bjnews.com.cn OR site:yicai.com AI 智能体 when:1d',
       ]
     : [
-        'AI artificial intelligence OpenAI Google Anthropic Meta latest when:1d',
-        'AI agents large language models latest when:1d',
+        'OpenAI OR Google OR Anthropic OR Meta AI latest when:1d',
+        'AI safety law audit regulation agents subscription when:1d',
+        'site:wired.com OR site:theverge.com OR site:wsj.com AI when:1d',
+        'site:reuters.com OR site:cnbc.com OR site:techcrunch.com AI when:1d',
       ]
 
   const settled = await Promise.allSettled(
@@ -205,13 +239,15 @@ async function fetchLatestAINews(language: string): Promise<NewsResult[]> {
 
   return results
     .filter(isFreshNews)
+    .filter(isHighQualityAINews)
+    .sort((a, b) => getNewsScore(b) - getNewsScore(a))
     .filter((item) => {
       const key = item.title.toLowerCase().replace(/\s+/g, ' ').trim()
       if (!key || seen.has(key)) return false
       seen.add(key)
       return true
     })
-    .slice(0, 8)
+    .slice(0, 5)
 }
 
 async function fetchGoogleNews(query: string, language: string): Promise<NewsResult[]> {
@@ -249,7 +285,7 @@ function formatNewsResponse(results: NewsResult[], language: string) {
       : 'I searched live, but did not get verifiable AI news from today or the last 36 hours. I would rather say that than pad it with stale news.'
   }
 
-  const items = results.slice(0, 5).map((item, index) => {
+  const items = results.slice(0, 3).map((item, index) => {
     const time = formatNewsTime(item.publishedAt, language)
     const judgment = getNewsJudgment(item.title)
 
@@ -261,8 +297,8 @@ Helen 看法：${judgment}`
   })
 
   const prefix = language === 'zh'
-    ? '我刚刚联网查了，优先保留今天和近 36 小时内有来源、有时间的结果：'
-    : 'I just searched live and kept results with source and timestamp from today or the last 36 hours:'
+    ? '我刚刚联网查了，只保留高质量来源里和全球 AI 动态相关的 3 条：'
+    : 'I just searched live and kept 3 items from higher-quality sources that matter for global AI:'
 
   return `${prefix}\n\n${items.join('\n\n')}`
 }
@@ -307,6 +343,35 @@ function isFreshNews(item: NewsResult) {
 
   const ageMs = Date.now() - published
   return ageMs >= 0 && ageMs <= 36 * 60 * 60 * 1000
+}
+
+function isHighQualityAINews(item: NewsResult) {
+  const source = item.source.toLowerCase()
+  const title = item.title
+  const combined = `${item.title} ${item.source}`
+
+  if (LOW_QUALITY_NEWS_PATTERNS.test(combined)) return false
+  if (!GLOBAL_AI_NEWS_PATTERNS.test(combined)) return false
+
+  return TRUSTED_NEWS_SOURCES.some((trusted) => source.includes(trusted))
+}
+
+function getNewsScore(item: NewsResult) {
+  const combined = `${item.title} ${item.source}`
+  let score = 0
+
+  if (/wired|the verge|wall street journal|wsj|reuters|bloomberg|cnbc|techcrunch|the information/i.test(combined)) score += 4
+  if (/OpenAI|Google|Anthropic|Meta|Microsoft|Nvidia/i.test(combined)) score += 3
+  if (/law|法案|audit|审计|regulation|监管|subscription|订阅|agent|智能体|safety|安全/i.test(combined)) score += 3
+  if (/exclusive|report|报道|专访|interview/i.test(combined)) score += 1
+
+  const published = Date.parse(item.publishedAt)
+  if (!Number.isNaN(published)) {
+    const ageHours = (Date.now() - published) / (60 * 60 * 1000)
+    score += Math.max(0, 3 - ageHours / 12)
+  }
+
+  return score
 }
 
 function getXmlValue(xml: string, tag: string) {
