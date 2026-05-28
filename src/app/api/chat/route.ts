@@ -45,10 +45,13 @@ const TRUSTED_NEWS_SOURCES = [
   'google deepmind',
   'deepmind',
   'meta ai',
+  'microsoft ai',
+  'microsoft',
   'nvidia',
+  'venturebeat',
 ]
 
-const OFFICIAL_NEWS_SOURCES = /openai|anthropic|google deepmind|deepmind|meta ai|nvidia/i
+const OFFICIAL_NEWS_SOURCES = /openai|anthropic|google deepmind|deepmind|meta ai|microsoft ai|microsoft|nvidia/i
 
 const LOW_QUALITY_NEWS_PATTERNS = /概念股|涨停|个股|A股|美股|港股|股票|股价|shares jump|buys stake|fund buys|holdings|NASDAQ|NYSE|token|ETH|WLD|crypto|加密货币|行情|研报|机构预测|梳理|获奖|荣膺|直播预告|发布会预告|报名|活动预告|招聘|融资快讯|地方政治|lobbyist|FERC|cnBeta|同花顺|证券时报|获奖|会议|论坛|白皮书|company announcement/i
 
@@ -219,12 +222,14 @@ async function fetchLatestAINews(language: string): Promise<NewsResult[]> {
         'site:theinformation.com AI OpenAI OR Anthropic OR Meta when:1d',
         'site:theverge.com/ai AI OpenAI OR Google OR Anthropic OR Meta when:1d',
         'site:techcrunch.com/category/artificial-intelligence AI agent model when:1d',
+        'site:venturebeat.com/ai AI agent model enterprise when:1d',
         'site:wired.com AI safety regulation model when:1d',
         'site:technologyreview.com AI model agent safety when:1d',
         'site:openai.com/news OpenAI model agent API when:1d',
         'site:anthropic.com/news Claude model agent safety when:1d',
         'site:deepmind.google/discover/blog Gemini model robotics when:1d',
         'site:ai.meta.com/blog Llama Meta AI model when:1d',
+        'site:microsoft.ai AI model agent Copilot when:1d',
         'site:blogs.nvidia.com AI GPU data center model when:1d',
       ]
     : [
@@ -234,12 +239,14 @@ async function fetchLatestAINews(language: string): Promise<NewsResult[]> {
         'site:theinformation.com AI OpenAI OR Anthropic OR Meta when:1d',
         'site:theverge.com/ai AI OpenAI OR Google OR Anthropic OR Meta when:1d',
         'site:techcrunch.com/category/artificial-intelligence AI agent model when:1d',
+        'site:venturebeat.com/ai AI agent model enterprise when:1d',
         'site:wired.com AI safety regulation model when:1d',
         'site:technologyreview.com AI model agent safety when:1d',
         'site:openai.com/news OpenAI model agent API when:1d',
         'site:anthropic.com/news Claude model agent safety when:1d',
         'site:deepmind.google/discover/blog Gemini model robotics when:1d',
         'site:ai.meta.com/blog Llama Meta AI model when:1d',
+        'site:microsoft.ai AI model agent Copilot when:1d',
         'site:blogs.nvidia.com AI GPU data center model when:1d',
       ]
 
@@ -253,6 +260,7 @@ async function fetchLatestAINews(language: string): Promise<NewsResult[]> {
   return results
     .filter(isFreshNews)
     .filter(isHighQualityAINews)
+    .filter((item) => item.link && !item.link.includes('news.google.com'))
     .sort((a, b) => getNewsScore(b) - getNewsScore(a))
     .filter((item) => {
       const key = item.title.toLowerCase().replace(/\s+/g, ' ').trim()
@@ -283,12 +291,17 @@ async function fetchGoogleNews(query: string, language: string): Promise<NewsRes
   const xml = await response.text()
   const itemMatches = xml.match(/<item>[\s\S]*?<\/item>/g) || []
 
-  return itemMatches.map((item) => ({
+  const parsed = itemMatches.map((item) => ({
     title: decodeXml(getXmlValue(item, 'title')).replace(/\s+-\s+[^-]+$/, '').trim(),
     source: decodeXml(getXmlValue(item, 'source')) || decodeXml(getXmlValue(item, 'title')).split(' - ').pop()?.trim() || 'Google News',
     publishedAt: decodeXml(getXmlValue(item, 'pubDate')),
     link: decodeXml(getXmlValue(item, 'link')),
   })).filter((item) => item.title && item.publishedAt)
+
+  return Promise.all(parsed.map(async (item) => ({
+    ...item,
+    link: await resolveOriginalNewsLink(item.link),
+  })))
 }
 
 function formatNewsResponse(results: NewsResult[], language: string) {
@@ -298,28 +311,76 @@ function formatNewsResponse(results: NewsResult[], language: string) {
       : 'I searched live, but did not get verifiable AI news from today or the last 36 hours. I would rather say that than pad it with stale news.'
   }
 
-  const items = results.slice(0, 3).map((item, index) => {
+  const selected = results.slice(0, 5)
+  const expandedTo48Hours = selected.some((item) => !isTodayNews(item))
+
+  const items = selected.slice(0, 3).map((item, index) => {
     const time = formatNewsTime(item.publishedAt, language)
     const judgment = getNewsJudgment(item.title, language)
+    const importance = getNewsImportance(item.title, language)
 
     return language === 'zh'
       ? `${index + 1}. ${item.title}
 来源：${item.source}
 时间：${time}
 链接：${item.link}
+为什么重要：${importance}
 Helen 看法：${judgment}`
       : `${index + 1}. ${item.title}
 Source: ${item.source}
 Time: ${time}
 Link: ${item.link}
+Why it matters: ${importance}
 Helen's take: ${judgment}`
   })
 
   const prefix = language === 'zh'
-    ? '我刚刚联网查了，只保留高质量来源里和全球 AI 动态相关的 3 条：'
-    : 'I just searched live and kept 3 items from higher-quality sources that matter for global AI:'
+    ? `我刚刚联网查了，只保留高质量来源里和全球 AI 动态相关的 ${items.length} 条${expandedTo48Hours ? '。今天足够硬的新闻不多，所以放宽到了过去 48 小时' : ''}：`
+    : `I just searched live and kept ${items.length} items from higher-quality sources that matter for global AI${expandedTo48Hours ? '. There were not enough strong items from today, so I expanded to the last 48 hours' : ''}:`
 
   return `${prefix}\n\n${items.join('\n\n')}`
+}
+
+function getNewsImportance(title: string, language: string) {
+  if (/model|模型|GPT|Claude|Gemini|Llama|DeepSeek|Qwen|Mistral|xAI/i.test(title)) {
+    return language === 'zh'
+      ? '模型能力或产品入口的变化，会直接影响开发者生态和应用迭代速度。'
+      : 'Model or product-entry changes directly affect developer ecosystems and application iteration speed.'
+  }
+
+  if (/agent|智能体|coding|code|developer|编程|代码/i.test(title)) {
+    return language === 'zh'
+      ? 'Agent 和 coding 是 AI 最容易进入真实工作流的方向，影响会先在组织效率里显现。'
+      : 'Agents and coding are among the fastest paths into real workflows, so the impact shows up in organizational efficiency first.'
+  }
+
+  if (/GPU|Nvidia|chip|data center|energy|cloud|AWS|Azure|芯片|算力|数据中心|能源|云/i.test(title)) {
+    return language === 'zh'
+      ? '算力、云和能源决定了下一轮模型竞争的成本结构，也会影响谁能持续训练和部署。'
+      : 'Compute, cloud, and energy shape the cost structure of model competition and who can keep training and deploying.'
+  }
+
+  if (/law|audit|regulation|safety|copyright|lawsuit|policy|法案|审计|监管|安全|版权|诉讼|政策/i.test(title)) {
+    return language === 'zh'
+      ? '监管和审计会改变 AI 公司发布模型、承担责任和进入行业场景的方式。'
+      : 'Regulation and audits change how AI companies release models, take responsibility, and enter regulated sectors.'
+  }
+
+  if (/subscription|pricing|commercialization|revenue|订阅|定价|商业化|收入/i.test(title)) {
+    return language === 'zh'
+      ? '商业化模式决定 AI 能不能从尝鲜工具变成可持续产品。'
+      : 'Commercialization decides whether AI moves from novelty tools to sustainable products.'
+  }
+
+  if (/acquisition|acquire|merger|funding|partnership|并购|收购|融资|合作/i.test(title)) {
+    return language === 'zh'
+      ? '头部公司的资本和合作动作，往往会重新分配人才、算力和渠道。'
+      : 'Capital and partnership moves by major players often redistribute talent, compute, and channels.'
+  }
+
+  return language === 'zh'
+    ? '它值得保留，是因为可能影响模型、产品、算力、监管或商业格局中的一个关键变量。'
+    : 'It is worth keeping because it may affect a key variable in models, products, compute, regulation, or the business landscape.'
 }
 
 function getNewsJudgment(title: string, language: string) {
@@ -401,7 +462,16 @@ function isFreshNews(item: NewsResult) {
   if (Number.isNaN(published)) return false
 
   const ageMs = Date.now() - published
-  return ageMs >= 0 && ageMs <= 36 * 60 * 60 * 1000
+  return ageMs >= 0 && ageMs <= 48 * 60 * 60 * 1000
+}
+
+function isTodayNews(item: NewsResult) {
+  const published = new Date(item.publishedAt)
+  if (Number.isNaN(published.getTime())) return false
+
+  const now = new Date()
+  return published.toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' }) ===
+    now.toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' })
 }
 
 function isHighQualityAINews(item: NewsResult) {
@@ -427,7 +497,7 @@ function getNewsScore(item: NewsResult) {
   let score = 0
 
   if (/reuters|bloomberg|financial times|ft|the information/i.test(combined)) score += 5
-  if (/the verge|techcrunch|wired|mit technology review/i.test(combined)) score += 4
+  if (/the verge|techcrunch|wired|mit technology review|venturebeat/i.test(combined)) score += 4
   if (OFFICIAL_NEWS_SOURCES.test(combined)) score += 3
   if (/OpenAI|Google|Anthropic|Meta|Microsoft|Nvidia|DeepMind|xAI|Mistral|DeepSeek|Qwen/i.test(combined)) score += 3
   if (/law|法案|audit|审计|regulation|监管|copyright|版权|lawsuit|诉讼|subscription|订阅|agent|智能体|coding|多模态|multimodal|video|robotics|safety|安全|GPU|data center|数据中心|energy|能源/i.test(combined)) score += 3
@@ -440,6 +510,25 @@ function getNewsScore(item: NewsResult) {
   }
 
   return score
+}
+
+async function resolveOriginalNewsLink(link: string) {
+  if (!link || !link.includes('news.google.com')) return link
+
+  try {
+    const response = await fetch(link, {
+      method: 'HEAD',
+      redirect: 'follow',
+    })
+
+    if (response.url && !response.url.includes('news.google.com')) {
+      return response.url
+    }
+  } catch (error) {
+    console.error('Failed to resolve news link:', error)
+  }
+
+  return ''
 }
 
 function getXmlValue(xml: string, tag: string) {
