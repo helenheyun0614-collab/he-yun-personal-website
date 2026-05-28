@@ -76,17 +76,15 @@ export async function POST(req: NextRequest) {
     const lastMessage = messages[messages.length - 1]?.content || ''
     const needsSearch = /搜索|新闻|今日|今天|最新|recent|news|today|search/i.test(lastMessage)
     const recentMessages = Array.isArray(messages) ? messages.slice(-6) : []
-    const newsResults = needsSearch ? await fetchLatestAINews(detectedLang) : []
-    const rawGLMSearchBrief = needsSearch && newsResults.length === 0
-      ? await fetchGLMSearchBrief(lastMessage, detectedLang)
-      : ''
-    const glmSearchBrief = isFreshSearchBrief(rawGLMSearchBrief) ? rawGLMSearchBrief : ''
+
+    if (needsSearch) {
+      const newsResults = await fetchLatestAINews(detectedLang)
+      return streamTextResponse(formatNewsResponse(newsResults, detectedLang))
+    }
 
     const systemMessage = {
       role: 'system',
-      content: needsSearch
-        ? `${HELEN_SYSTEM_PROMPT}\n\n${getNewsSearchPrompt(newsResults, glmSearchBrief, detectedLang)}`
-        : HELEN_SYSTEM_PROMPT
+      content: HELEN_SYSTEM_PROMPT
     }
 
     const allMessages = [systemMessage, ...recentMessages]
@@ -95,8 +93,8 @@ export async function POST(req: NextRequest) {
       model: 'glm-4-flash',
       messages: allMessages,
       stream: true,
-      temperature: needsSearch ? 0.35 : 0.95,
-      max_tokens: needsSearch ? 900 : 350,
+      temperature: 0.95,
+      max_tokens: 350,
     }
 
     const response = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
@@ -244,87 +242,63 @@ async function fetchGoogleNews(query: string, language: string): Promise<NewsRes
   })).filter((item) => item.title && item.publishedAt)
 }
 
-async function fetchGLMSearchBrief(input: string, language: string) {
-  const now = new Date()
-  const date = now.toISOString().slice(0, 10)
-  const query = language === 'zh'
-    ? `${date} 今天 最新 AI 热点新闻 OpenAI Google Anthropic Meta 大模型 智能体`
-    : `${date} today latest AI news OpenAI Google Anthropic Meta large language models agents`
-
-  try {
-    const response = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.GLM_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: 'glm-4-flash',
-        stream: false,
-        temperature: 0.2,
-        max_tokens: 700,
-        tools: [{
-          type: 'web_search',
-          web_search: {
-            search_query: query,
-          },
-        }],
-        messages: [
-          {
-            role: 'system',
-            content: '你是实时新闻搜索器。必须使用 web_search 结果。只返回搜索到的近24小时 AI 新闻，包含标题、来源、发布时间或日期。不要使用训练记忆，不要编造。',
-          },
-          {
-            role: 'user',
-            content: input,
-          },
-        ],
-      }),
-    })
-
-    if (!response.ok) return ''
-
-    const data = await response.json()
-    return data?.choices?.[0]?.message?.content || ''
-  } catch (error) {
-    console.error('GLM web search failed:', error)
-    return ''
+function formatNewsResponse(results: NewsResult[], language: string) {
+  if (results.length === 0) {
+    return language === 'zh'
+      ? '我刚刚联网查了，但没有拿到今天或近 36 小时内可核验的 AI 新闻结果。这个时候我宁可说没搜到，也不想拿旧新闻糊弄你。'
+      : 'I searched live, but did not get verifiable AI news from today or the last 36 hours. I would rather say that than pad it with stale news.'
   }
+
+  const items = results.slice(0, 5).map((item, index) => {
+    const time = formatNewsTime(item.publishedAt, language)
+    const judgment = getNewsJudgment(item.title)
+
+    return `${index + 1}. ${item.title}
+来源：${item.source}
+时间：${time}
+链接：${item.link}
+Helen 看法：${judgment}`
+  })
+
+  const prefix = language === 'zh'
+    ? '我刚刚联网查了，优先保留今天和近 36 小时内有来源、有时间的结果：'
+    : 'I just searched live and kept results with source and timestamp from today or the last 36 hours:'
+
+  return `${prefix}\n\n${items.join('\n\n')}`
 }
 
-function getNewsSearchPrompt(results: NewsResult[], glmSearchBrief: string, language: string) {
-  const now = new Date().toISOString()
-  const dateLabel = language === 'zh' ? '当前时间' : 'Current time'
-
-  if (results.length === 0 && !glmSearchBrief) {
-    return `${dateLabel}: ${now}
-
-实时搜索没有返回可用结果。请直接告诉用户：当前联网搜索没有拿到最新新闻，不能凭记忆补旧新闻。`
+function getNewsJudgment(title: string) {
+  if (/agent|智能体|agents/i.test(title)) {
+    return '我会看它是不是真的进入工作流，而不只是换一个更热的名字。'
   }
 
-  if (results.length === 0 && glmSearchBrief) {
-    return `${dateLabel}: ${now}
-
-以下是刚刚通过 GLM web_search 实时搜索返回的内容。回答必须只基于这段搜索结果，不要使用模型记忆补充新闻；如果其中没有明确日期或来源，请提醒用户需要继续核对。
-请输出 3-5 条短 briefing，每条都必须包含：新闻事件、来源/日期、Helen 的一句判断。不要只总结一个趋势。
-
-GLM 实时搜索结果：
-${glmSearchBrief}`
+  if (/safety|安全|监管|law|audit|risk|policy/i.test(title)) {
+    return '这类新闻说明 AI 已经从“能不能做”进入“谁来负责”的阶段。'
   }
 
-  const lines = results.map((item, index) => (
-    `${index + 1}. ${item.title}
-来源: ${item.source}
-时间: ${item.publishedAt}
-链接: ${item.link}`
-  )).join('\n\n')
+  if (/chip|GPU|Nvidia|芯片|算力/i.test(title)) {
+    return '算力还是底层变量，但真正的分化会出现在谁能把算力变成可用产品。'
+  }
 
-  return `${dateLabel}: ${now}
+  if (/OpenAI|Google|Anthropic|Meta|DeepSeek|Gemini|Claude|GPT/i.test(title)) {
+    return '大公司动作值得看，但我更关心它会不会改变普通人的使用习惯。'
+  }
 
-以下是刚刚实时搜索到的 AI 新闻结果。回答必须只基于这些结果，不要使用模型记忆补充新闻；不要提 GPT-4、LLaMA、Gemini 3.5 等未出现在搜索结果里的旧信息。请用中文给 3-5 条简短热点，每条包含：事件、来源/时间、Helen 的一句判断。不要只总结一个趋势。最后可以提醒用户“我会优先看今天和近24小时的结果”。
+  return '这不是单条新闻的问题，它反映的是 AI 正在更深地进入产业和组织。'
+}
 
-实时搜索结果：
-${lines}`
+function formatNewsTime(value: string, language: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+
+  return date.toLocaleString(language === 'zh' ? 'zh-CN' : 'en-US', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Asia/Shanghai',
+  })
 }
 
 function isFreshNews(item: NewsResult) {
@@ -333,34 +307,6 @@ function isFreshNews(item: NewsResult) {
 
   const ageMs = Date.now() - published
   return ageMs >= 0 && ageMs <= 36 * 60 * 60 * 1000
-}
-
-function isFreshSearchBrief(content: string) {
-  if (!content) return false
-
-  const now = new Date()
-  const yyyy = now.getUTCFullYear()
-  const mm = String(now.getUTCMonth() + 1).padStart(2, '0')
-  const dd = String(now.getUTCDate()).padStart(2, '0')
-  const monthEn = now.toLocaleString('en-US', { month: 'long', timeZone: 'UTC' })
-  const monthShort = now.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' })
-  const day = String(now.getUTCDate())
-
-  const todayPatterns = [
-    `${yyyy}-${mm}-${dd}`,
-    `${yyyy}/${mm}/${dd}`,
-    `${yyyy}年${Number(mm)}月${Number(dd)}日`,
-    `${yyyy}年${mm}月${dd}日`,
-    `${monthEn} ${day}, ${yyyy}`,
-    `${monthShort} ${day}, ${yyyy}`,
-    `${day} ${monthEn} ${yyyy}`,
-    `${day} ${monthShort} ${yyyy}`,
-  ]
-
-  const hasToday = todayPatterns.some((pattern) => content.includes(pattern))
-  const tooVague = /来源[:：]未知|发布时间[:：]未知|时间[:：]未知/.test(content)
-
-  return hasToday && !tooVague
 }
 
 function getXmlValue(xml: string, tag: string) {
@@ -375,6 +321,28 @@ function decodeXml(value: string) {
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
+}
+
+function streamTextResponse(content: string) {
+  const encoder = new TextEncoder()
+
+  const stream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(
+        encoder.encode(`data: ${JSON.stringify({ content })}\n\n`)
+      )
+      controller.enqueue(encoder.encode('data: [DONE]\n\n'))
+      controller.close()
+    },
+  })
+
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+    },
+  })
 }
 
 function detectLanguage(messages: Message[]): string {
