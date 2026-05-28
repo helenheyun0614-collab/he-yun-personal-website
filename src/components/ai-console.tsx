@@ -208,8 +208,13 @@ export function AIConsole() {
     ? ["Search for today's AI news", "What's left after Scaling?", "Are Agents more like employees or organizations?", "Why does research taste matter?", "What will be scarcer than models?", "Will AI rewrite organizational structures?"]
     : ["搜索今天的AI热点新闻", "Scaling 之后还剩什么？", "Agent 更像员工还是组织？", "为什么 research taste 很重要？", "什么会比模型更稀缺？", "AI 会重写组织结构吗？"]
 
+  // 检测是否为新闻内容
+  const isNewsContent = (content: string) => {
+    return /今天AI热点新闻|AI热点新闻|来源：|发布时间：|为什么重要|Helen观点/i.test(content)
+  }
+
   return (
-    <section id="interact" className="section-padding interact-section relative z-10" style={{ background: 'transparent' }}>
+    <section id="interact" className="section-padding relative z-10" style={{ background: 'transparent' }}>
       <div className="container-max">
         {/* Title - lighter weight */}
         <div className="mb-4 md:mb-6 lg:mb-8">
@@ -256,7 +261,7 @@ export function AIConsole() {
                   overscrollBehavior: 'contain',
                 }}
               >
-                <div className="space-y-8">
+                <div className="space-y-6">
                   {messages.map((message, index) => (
                     <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                       <div
@@ -268,10 +273,10 @@ export function AIConsole() {
                         }}
                       >
                         <p 
-                          className="leading-relaxed whitespace-pre-wrap"
+                          className="whitespace-pre-wrap"
                           style={{ 
                             fontSize: '15px',
-                            lineHeight: '1.85',
+                            lineHeight: isNewsContent(message.content) ? '1.55' : '1.7',
                             color: message.role === 'user' ? 'var(--brand)' : 'rgba(255, 255, 255, 0.82)',
                             letterSpacing: '0.01em',
                           }}
@@ -286,10 +291,10 @@ export function AIConsole() {
                     <div className="flex justify-start">
                       <div className="max-w-[92%] md:max-w-[85%]">
                         <p 
-                          className="leading-relaxed whitespace-pre-wrap"
+                          className="whitespace-pre-wrap"
                           style={{ 
                             fontSize: '15px',
-                            lineHeight: '1.85',
+                            lineHeight: isNewsContent(streamingContent) ? '1.55' : '1.7',
                             color: 'rgba(255, 255, 255, 0.82)',
                             letterSpacing: '0.01em',
                           }}
