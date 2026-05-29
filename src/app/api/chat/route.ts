@@ -36,6 +36,20 @@ interface NewsFeed {
   url: string
 }
 
+interface SearchResult {
+  title: string
+  url: string
+  content: string
+}
+
+type IntentType = 'CHAT' | 'OPINION' | 'NEWS' | 'FACT_SEARCH' | 'WEBSITE'
+
+interface IntentResult {
+  type: IntentType
+  confidence: number
+  agent: string
+}
+
 const CHINA_AI_FEEDS: NewsFeed[] = [
   { source: '36氪', url: 'https://www.36kr.com/feed' },
   { source: '雷峰网', url: 'https://www.leiphone.com/feed' },
@@ -71,14 +85,48 @@ const HELEN_SYSTEM_PROMPT = `
 没有taste的人追热点，有taste的人造热点。差别是：一个被方向选，一个选方向。
 `
 
+const FACT_SEARCH_PROMPT = `
+你是Helen网站里的事实搜索Agent，只处理需要实时核验的事实问题。
+
+要求：
+- 必须基于联网搜索结果回答
+- 给出来源名称和链接
+- 如果搜索结果不足，不要猜
+- 不要回答成新闻汇总
+- 中文简洁回答，最多3段
+- 不要说"作为AI"
+`
+
+const WEBSITE_AGENT_PROMPT = `
+你是Helen网站里的Website Agent，负责看网站、交互、内容结构和表达问题。
+
+回答方式：
+- 直接指出问题和改法
+- 优先关注移动端、首屏、留白、信息密度、交互路径和Helen个人表达
+- 不要写成泛泛的网站优化报告
+- 最多3段
+`
+
 export async function POST(req: NextRequest) {
   try {
     const { messages } = await req.json()
     const lastMessage = messages[messages.length - 1]?.content || ''
-    const needsSearch = shouldHandleNewsRequest(lastMessage)
+    const intent = classifyIntent(lastMessage)
 
-    if (needsSearch) {
-      return handleNewsRequest(lastMessage)
+    console.log(`Detected Intent: ${intent.type}`)
+    console.log(`Confidence: ${intent.confidence.toFixed(2)}`)
+    console.log(`Selected Agent: ${intent.agent}`)
+
+    if (intent.type === 'NEWS') {
+      return handleNewsRequest()
+    }
+
+    if (intent.type === 'FACT_SEARCH') {
+      return handleFactSearchRequest(lastMessage)
+    }
+
+    if (intent.type === 'WEBSITE') {
+      return handleChatRequest(messages, WEBSITE_AGENT_PROMPT, 400)
     }
 
     return handleChatRequest(messages)
@@ -91,25 +139,154 @@ export async function POST(req: NextRequest) {
   }
 }
 
-async function handleNewsRequest(query: string) {
+async function handleNewsRequest() {
   const items = await fetchChinaAINews()
   return createTextResponse(formatChinaNews(items))
 }
 
-function shouldHandleNewsRequest(input: string) {
+function classifyIntent(input: string): IntentResult {
   const text = input.trim()
-  if (!text) return false
+  if (!text) return { type: 'CHAT', confidence: 0.9, agent: 'Helen Chat Agent' }
 
-  if (/(新闻|热点|资讯|今日|今天|最新).*(AI|人工智能|大模型|科技|行业)/i.test(text)) return true
-  if (/(AI|人工智能|大模型|科技|行业).*(新闻|热点|资讯|今日|今天|最新)/i.test(text)) return true
-  if (/\b(search|find|look up)\b.*\b(today'?s?|latest|recent)\b.*\b(ai|artificial intelligence)\b/i.test(text)) return true
+  if (isWebsiteIntent(text)) {
+    return { type: 'WEBSITE', confidence: 0.92, agent: 'Website Agent' }
+  }
+
+  if (isNewsIntent(text)) {
+    return { type: 'NEWS', confidence: 0.95, agent: 'News Agent' }
+  }
+
+  if (isOpinionIntent(text)) {
+    return { type: 'OPINION', confidence: 0.95, agent: 'Helen Chat Agent' }
+  }
+
+  if (isFactSearchIntent(text)) {
+    return { type: 'FACT_SEARCH', confidence: 0.9, agent: 'Search Agent' }
+  }
+
+  return { type: 'CHAT', confidence: 0.85, agent: 'Helen Chat Agent' }
+}
+
+function isNewsIntent(text: string) {
+  if (/(新闻|热点|资讯|动态|汇总|日报|周报).*(AI|人工智能|大模型|科技|行业)/i.test(text)) return true
+  if (/(AI|人工智能|大模型|科技|行业).*(新闻|热点|资讯|动态|汇总|日报|周报)/i.test(text)) return true
+  if (/搜索.*(AI|人工智能|大模型).*(新闻|热点|资讯|动态)/i.test(text)) return true
+  if (/\b(search|find|look up)\b.*\b(today'?s?|latest|recent)\b.*\b(ai|artificial intelligence)\b.*\b(news|headlines)\b/i.test(text)) return true
   if (/\b(today'?s?|latest|recent)\b.*\b(ai|artificial intelligence)\b.*\b(news|headlines)\b/i.test(text)) return true
 
   return false
 }
 
-async function handleChatRequest(messages: Message[]) {
+function isOpinionIntent(text: string) {
+  if (/research taste|研究品味/i.test(text)) return true
+  if (/Agent.*(员工|组织)|智能体.*(员工|组织)|(员工|组织).*Agent|(员工|组织).*智能体/i.test(text)) return true
+  if (/AGI.*(先|首先|最先).*(改变|影响)|AGI.*会.*改变什么/i.test(text)) return true
+  if (/(为什么|为何|怎么看|如何看待|更像|会不会|是不是|重要|关系|意味着).*(AI|AGI|Agent|智能体|大模型|research|研究|大学生|人类|组织|人才)/i.test(text)) return true
+  if (/(AI|AGI|Agent|智能体|大模型|research|研究|大学生|人类|组织|人才).*(为什么|怎么看|如何看待|更像|会不会|是不是|重要|关系|意味着)/i.test(text)) return true
+
+  return false
+}
+
+function isFactSearchIntent(text: string) {
+  if (/(新闻|热点|资讯|动态|汇总)/i.test(text)) return false
+  if (/(什么时候|哪天|几号|参数|规模|多少|最新融资|融资额|估值|发布了吗|发布了没|是谁|谁是|current|latest|when|how many|parameter)/i.test(text)) return true
+  if (/搜索|查一下|查查|帮我查|联网查|核实|验证|求证|look up|search|verify/i.test(text)) return true
+
+  return false
+}
+
+function isWebsiteIntent(text: string) {
+  if (/https?:\/\/|www\./i.test(text) && /(网站|网页|页面|前端|交互|优化|看看|评价|问题)/i.test(text)) return true
+  if (/(网站|网页|页面|前端|交互|首屏|移动端|手机端|电脑端).*(优化|看看|改|调整|问题|建议)/i.test(text)) return true
+  if (/(帮我看看|看看).*(网站|网页|页面|前端)/i.test(text)) return true
+
+  return false
+}
+
+async function handleFactSearchRequest(query: string) {
+  const searchResults = await searchFacts(query)
+
+  if (searchResults.length === 0) {
+    return createTextResponse('这个问题需要实时核验，但当前站点还没有配置可靠的事实搜索 API。我不会用模型记忆硬猜；要把这个 Search Agent 真正跑起来，需要接 Tavily、Bing Search 或 SerpAPI 这类能返回原文链接的搜索服务。')
+  }
+
+  const sourceContext = searchResults.map((result, index) => {
+    return `${index + 1}. ${result.title}
+链接：${result.url}
+摘要：${result.content}`
+  }).join('\n\n')
+
+  const response = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${process.env.GLM_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: 'glm-4',
+      messages: [
+        { role: 'system', content: FACT_SEARCH_PROMPT },
+        { role: 'user', content: `问题：${query}\n\n可用搜索结果：\n${sourceContext}` }
+      ],
+      stream: true,
+      temperature: 0.2,
+      max_tokens: 600,
+    }),
+  })
+
+  if (!response.ok) throw new Error(`API error: ${response.status}`)
+  return createStreamResponse(response)
+}
+
+async function searchFacts(query: string): Promise<SearchResult[]> {
+  const apiKey = process.env.TAVILY_API_KEY
+  if (!apiKey) return []
+
+  try {
+    const response = await fetch('https://api.tavily.com/search', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      signal: AbortSignal.timeout(10000),
+      body: JSON.stringify({
+        api_key: apiKey,
+        query,
+        search_depth: 'advanced',
+        max_results: 5,
+        include_answer: false,
+        include_raw_content: false,
+      }),
+    })
+
+    if (!response.ok) return []
+
+    const data = await response.json()
+    const results = Array.isArray(data.results) ? data.results : []
+
+    return results
+      .map((result: any) => ({
+        title: cleanText(String(result.title || '')),
+        url: String(result.url || ''),
+        content: cleanText(String(result.content || '')),
+      }))
+      .filter((result: SearchResult) => result.title && result.url && result.content)
+      .slice(0, 5)
+  } catch (error) {
+    console.error('Fact search failed:', error)
+    return []
+  }
+}
+
+async function handleChatRequest(messages: Message[], extraSystemPrompt?: string, maxTokens = 250) {
   const recentMessages = Array.isArray(messages) ? messages.slice(-6) : []
+  const systemMessages: Message[] = [
+    { role: 'system', content: HELEN_SYSTEM_PROMPT },
+  ]
+
+  if (extraSystemPrompt) {
+    systemMessages.push({ role: 'system', content: extraSystemPrompt })
+  }
   
   const response = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
     method: 'POST',
@@ -120,12 +297,12 @@ async function handleChatRequest(messages: Message[]) {
     body: JSON.stringify({
       model: 'glm-4',
       messages: [
-        { role: 'system', content: HELEN_SYSTEM_PROMPT },
+        ...systemMessages,
         ...recentMessages
       ],
       stream: true,
       temperature: 0.75,
-      max_tokens: 250,
+      max_tokens: maxTokens,
     }),
   })
   
