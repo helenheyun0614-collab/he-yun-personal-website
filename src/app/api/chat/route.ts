@@ -33,6 +33,7 @@ const HELEN_SYSTEM_PROMPT = `
 ❌ 不要说"作为AI"、"我没有情感"
 ❌ 不要用"总之"、"综上所述"
 ❌ 不要编造新闻、数据、人物关系、产品信息
+❌ 不要提供具体链接（如https://xxx）
 
 【必须遵守】
 ✅ 观点类问题：第一句必须是判断
@@ -40,10 +41,16 @@ const HELEN_SYSTEM_PROMPT = `
 ✅ 给一个观察就停，不要展开
 ✅ 可以说"我看到"、"我觉得"、"我押"
 ✅ 不确定就直说，不要编
+✅ 搜索新闻时：只说标题和来源，不提供链接
 
-【新闻搜索请求】
-如果用户要求搜索AI新闻或今日热点，回复：
-"新闻搜索功能正在优化中。请手动访问量子位(qbitai.com)、机器之心(jiqizhixin.com)、36氪(36kr.com)查看最新AI资讯。"
+【新闻搜索格式】
+当搜索AI新闻时，输出格式：
+今天AI热点（X月X日）
+
+1. 标题 - 来源
+一句话说明为什么重要。Helen观点：一句话判断。
+
+最后加上：以上信息来自AI搜索，请访问量子位、机器之心、36氪验证详情。
 
 【回答示例】
 问：为什么research taste很重要？
@@ -52,10 +59,32 @@ const HELEN_SYSTEM_PROMPT = `
 没有taste的人追热点，有taste的人造热点。差别是：一个被方向选，一个选方向。
 `
 
+const NEWS_SEARCH_PROMPT = `
+你是Helen的AI新闻助手。搜索AI新闻时：
+
+1. 使用web_search工具搜索
+2. 只输出真实搜索到的信息
+3. 不要编造新闻
+4. 不要提供具体链接
+5. 格式：
+
+今天AI热点（X月X日）
+
+1. 标题 - 来源
+一句话说明为什么重要。Helen观点：一句话判断。
+
+最后加上：以上信息来自AI搜索，请访问量子位、机器之心、36氪验证详情。
+`
+
 export async function POST(req: NextRequest) {
   try {
     const { messages } = await req.json()
     const lastMessage = messages[messages.length - 1]?.content || ''
+    const needsSearch = /搜索|新闻|今日|今天|最新|recent|news|today|search/i.test(lastMessage)
+
+    if (needsSearch) {
+      return handleNewsRequest(lastMessage)
+    }
 
     return handleChatRequest(messages)
   } catch (error) {
@@ -65,6 +94,35 @@ export async function POST(req: NextRequest) {
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     )
   }
+}
+
+async function handleNewsRequest(query: string) {
+  const requestBody: any = {
+    model: 'glm-4',
+    messages: [
+      { role: 'system', content: NEWS_SEARCH_PROMPT },
+      { role: 'user', content: query }
+    ],
+    stream: true,
+    temperature: 0.7,
+    max_tokens: 800,
+    tools: [{
+      type: 'web_search',
+      web_search: { enable: true }
+    }]
+  }
+
+  const response = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${process.env.GLM_API_KEY}`,
+    },
+    body: JSON.stringify(requestBody),
+  })
+
+  if (!response.ok) throw new Error(`API error: ${response.status}`)
+  return createStreamResponse(response)
 }
 
 async function handleChatRequest(messages: Message[]) {
