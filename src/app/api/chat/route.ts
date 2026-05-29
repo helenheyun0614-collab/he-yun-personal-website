@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
   try {
     const { messages } = await req.json()
     const lastMessage = messages[messages.length - 1]?.content || ''
-    const needsSearch = /搜索|新闻|今日|今天|最新|recent|news|today|search/i.test(lastMessage)
+    const needsSearch = shouldHandleNewsRequest(lastMessage)
 
     if (needsSearch) {
       return handleNewsRequest(lastMessage)
@@ -94,6 +94,18 @@ export async function POST(req: NextRequest) {
 async function handleNewsRequest(query: string) {
   const items = await fetchChinaAINews()
   return createTextResponse(formatChinaNews(items))
+}
+
+function shouldHandleNewsRequest(input: string) {
+  const text = input.trim()
+  if (!text) return false
+
+  if (/(新闻|热点|资讯|今日|今天|最新).*(AI|人工智能|大模型|科技|行业)/i.test(text)) return true
+  if (/(AI|人工智能|大模型|科技|行业).*(新闻|热点|资讯|今日|今天|最新)/i.test(text)) return true
+  if (/\b(search|find|look up)\b.*\b(today'?s?|latest|recent)\b.*\b(ai|artificial intelligence)\b/i.test(text)) return true
+  if (/\b(today'?s?|latest|recent)\b.*\b(ai|artificial intelligence)\b.*\b(news|headlines)\b/i.test(text)) return true
+
+  return false
 }
 
 async function handleChatRequest(messages: Message[]) {
