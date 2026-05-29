@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 
-export const maxDuration = 60
+export const maxDuration = 90
 
 interface Message {
   role: 'system' | 'user' | 'assistant'
@@ -68,11 +68,32 @@ const SOURCE_DOMAINS: Record<string, string[]> = {
   '36氪': ['36kr.com'],
   '雷峰网': ['leiphone.com'],
   '钛媒体': ['tmtpost.com'],
+  '量子位': ['qbitai.com'],
+  '机器之心': ['jiqizhixin.com'],
+  '新智元': ['aibase.com', 'newzhiyuan.com'],
+  '智东西': ['zhidx.com'],
+  '甲子光年': ['jazzyear.com'],
+  'VentureBeat': ['venturebeat.com'],
+  'The Verge': ['theverge.com'],
+  'TechCrunch': ['techcrunch.com'],
+  'MIT Technology Review': ['technologyreview.com'],
+  'Reuters': ['reuters.com'],
+  'Bloomberg': ['bloomberg.com'],
+  '南华早报': ['scmp.com'],
+  'SCMP': ['scmp.com'],
+  'CNBC': ['cnbc.com'],
+  'OpenRouter': ['openrouter.ai'],
+  '浙江大学': ['zju.edu.cn'],
+  'OpenAI': ['openai.com'],
+  'Anthropic': ['anthropic.com'],
+  'Google DeepMind': ['deepmind.google'],
+  'Meta AI': ['ai.meta.com', 'meta.com'],
+  'NVIDIA': ['nvidia.com'],
 }
 
 const HIGH_VALUE_AI_PATTERNS = /大模型|模型|Agent|智能体|多模态|视频生成|机器人|AI Infra|Infra|算力|芯片|GPU|数据中心|开源|国产模型|DeepSeek|通义|千问|Qwen|文心|豆包|混元|智谱|Kimi|月之暗面|MiniMax|MiniCPM|华为|昇腾|阿里|百度|腾讯|字节|OpenAI|Anthropic|Gemini|Claude|Llama|Coding|代码|政策|监管|备案|应用落地|产业落地/i
 const STRONG_AI_TITLE_PATTERNS = /大模型|模型发布|开源模型|国产模型|Agent|智能体|多模态|视频生成|机器人|具身|AI Infra|算力|芯片|GPU|数据中心|DeepSeek|通义|千问|Qwen|文心|豆包|混元|智谱|Kimi|月之暗面|MiniMax|MiniCPM|OpenAI|Anthropic|Gemini|Claude|Llama|Coding|代码|政策|监管|备案|审计|安全/i
-const LOW_VALUE_PATTERNS = /股价|股票|概念股|涨停|融资小新闻|估值|持仓|基金|获奖|荣膺|大会|会议|论坛|峰会|白皮书|营销|发布会预告|活动预告|直播预告|报名|招聘|财报|证券|研报|转载|标题党|加密货币|token|ETH|WLD|数百万|天使轮|A轮|Pre-A|首发|上市|起售价|售价|手机|汽车|比亚迪|OPPO|Reno|摄影|消费电子|家电|评测|导购|种草|科氪|产品矩阵|工作站|体验馆|门店|开业|首店|线下店|8点1氪|早报|晚报|日报|周报/i
+const LOW_VALUE_PATTERNS = /股价|股票|概念股|涨停|融资小新闻|估值|持仓|基金|获奖|荣膺|大会|会议|论坛|峰会|白皮书|营销|发布会预告|活动预告|直播预告|报名|招聘|财报|证券|研报|转载|标题党|加密货币|token|ETH|WLD|数百万|天使轮|A轮|Pre-A|首发|上市|起售价|售价|手机|汽车|比亚迪|OPPO|Reno|摄影|消费电子|家电|评测|导购|种草|科氪|产品矩阵|工作站|体验馆|门店|开业|首店|线下店|疯狂的|8点1氪|早报|晚报|日报|周报/i
 
 const HELEN_SYSTEM_PROMPT = `
 你是Helen的AI交互界面。Helen是AI TIME负责人，长期在AI生态现场观察和连接。
@@ -149,6 +170,11 @@ async function handleNewsPipeline() {
   const rankedNews = rankingAgent(verifiedNews)
   const helenNews = helenAgent(rankedNews)
 
+  console.log(`Search Agent Candidates: ${rawNews.length}`)
+  console.log(`Verification Agent Valid: ${verifiedNews.length}`)
+  console.log(`Verification Agent Titles: ${verifiedNews.map((item) => `${item.title}(${scoreVerifiedNews(item)})`).join(' | ')}`)
+  console.log(`Ranking Agent Selected: ${rankedNews.length}`)
+
   return createTextResponse(formatNewsPipelineResult(helenNews))
 }
 
@@ -197,23 +223,87 @@ function isWebsiteIntent(text: string) {
 }
 
 async function searchAgent(): Promise<RawNews[]> {
+  const webCandidates = await webSearchAgent()
   const settled = await Promise.allSettled(
     CHINA_AI_FEEDS.map((feed) => fetchNewsFeed(feed))
   )
 
   const seen = new Set<string>()
 
-  return settled
+  const rssCandidates = settled
     .flatMap((result) => result.status === 'fulfilled' ? result.value : [])
+
+  return [...webCandidates, ...rssCandidates]
     .filter(isRecentNews)
     .filter(isPotentialAINews)
     .filter((item) => {
-      const key = normalizeNewsKey(item.title)
+      const key = normalizeNewsKey(item.link || item.title)
       if (!key || seen.has(key)) return false
       seen.add(key)
       return true
     })
     .slice(0, 12)
+}
+
+async function webSearchAgent(): Promise<RawNews[]> {
+  if (!process.env.GLM_API_KEY) return []
+
+  const today = new Date().toLocaleDateString('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
+
+  try {
+    const response = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.GLM_API_KEY}`,
+      },
+      signal: AbortSignal.timeout(45000),
+      body: JSON.stringify({
+        model: 'glm-4',
+        messages: [
+          {
+            role: 'system',
+            content: `你是Search Agent，只负责联网检索AI新闻候选。禁止生成观点、判断和总结。只返回JSON数组，不要Markdown。每项必须包含title, source, url, publishedTime, snippet。url必须是原文链接，不能是搜索结果页。优先来源：机器之心、量子位、新智元、智东西、36氪、钛媒体、甲子光年、雷峰网、OpenAI、Anthropic、Google DeepMind、Meta AI、NVIDIA、Reuters、Bloomberg、The Verge、TechCrunch、MIT Technology Review、VentureBeat。`
+          },
+          {
+            role: 'user',
+            content: `今天是${today}。请联网搜索今天或过去48小时全球/中国AI热点新闻，关注大模型、Agent、多模态、AI Infra、国产模型、开源模型、政策监管、产业格局。不要普通股价、普通融资、会议通稿、营销稿。返回5-8条候选。`
+          }
+        ],
+        tools: [{ type: 'web_search', web_search: { enable: true } }],
+        stream: false,
+        temperature: 0.1,
+        max_tokens: 2500,
+      }),
+    })
+
+    if (!response.ok) return []
+
+    const data = await response.json()
+    const content = data.choices?.[0]?.message?.content || ''
+    const parsed = parseJsonArray(content)
+    console.log(`Search Agent web candidates parsed: ${parsed.length}`)
+
+    const candidates = parsed.length > 0 ? parsed : parseSearchTextCandidates(content)
+
+    return candidates
+      .map((item: any) => ({
+        title: cleanText(String(item.title || '')),
+        source: cleanText(String(item.source || getDomainName(String(item.url || '')))),
+        publishedTime: cleanText(String(item.publishedTime || item.published_time || item.date || '')),
+        link: String(item.url || item.link || ''),
+        snippet: cleanText(String(item.snippet || item.summary || item.description || '')),
+      }))
+      .filter((item: RawNews) => item.title && item.source && item.publishedTime && item.link)
+  } catch (error) {
+    console.error('Search Agent web search failed:', error)
+    return []
+  }
 }
 
 async function fetchNewsFeed(feed: NewsFeed): Promise<RawNews[]> {
@@ -281,7 +371,7 @@ async function verifySourcePage(item: RawNews): Promise<{ domain: string; publis
       headers: {
         'User-Agent': 'Mozilla/5.0 (compatible; HelenWebsite/1.0)',
       },
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(6000),
     })
 
     if (!response.ok) {
@@ -322,7 +412,7 @@ function rankingAgent(items: VerifiedNews[]): RankedNews[] {
         quality: getNewsQuality(score),
       }
     })
-    .filter((item) => item.score >= 40)
+    .filter((item) => item.score >= 12)
     .sort((a, b) => b.score - a.score)
     .slice(0, 5)
 }
@@ -369,7 +459,7 @@ function scoreVerifiedNews(item: VerifiedNews) {
   const text = `${item.title} ${item.snippet}`
   let score = 0
 
-  if (/大模型|模型发布|国产模型|开源模型|DeepSeek|Qwen|通义|文心|豆包|Kimi|MiniMax|MiniCPM|智谱/i.test(text)) score += 35
+  if (/大模型|模型发布|国产模型|开源模型|DeepSeek|Qwen|通义|文心|豆包|Kimi|MiniMax|MiniCPM|智谱|Anthropic|Claude|Opus|OpenAI|GPT|Gemini/i.test(text)) score += 35
   if (/Agent|智能体|Coding|代码|AI应用|应用落地|产业落地/i.test(text)) score += 25
   if (/多模态|视频生成|机器人|具身/i.test(text)) score += 22
   if (/算力|芯片|GPU|AI Infra|数据中心|昇腾|NVIDIA/i.test(text)) score += 22
@@ -392,7 +482,7 @@ function generateImportance(item: VerifiedNews) {
 
   if (/Agent|智能体/i.test(title)) return '它关系到 AI 能否从问答进入真实任务执行，影响产品入口和组织流程。'
   if (/Coding|代码/i.test(title)) return 'AI 编程会先改变小团队的研发速度，再倒逼大组织调整协作方式。'
-  if (/大模型|模型发布|国产模型|开源模型|MiniCPM/i.test(title)) return '模型能力和开源节奏会影响开发者生态，也会改变 AI 应用的成本结构。'
+  if (/大模型|模型发布|国产模型|开源模型|MiniCPM|Anthropic|Claude|Opus|OpenAI|GPT|Gemini/i.test(title)) return '模型能力和发布节奏会影响开发者生态，也会改变 AI 应用的成本结构。'
   if (/多模态|视频生成|机器人|具身/i.test(text)) return '多模态和机器人会把 AI 从文本窗口推向更真实的产品形态。'
   if (/算力|芯片|GPU|AI Infra|数据中心|昇腾/i.test(text)) return '算力和基础设施决定模型能否持续迭代，也决定能力能否稳定交付。'
   if (/政策|监管|备案|审计|安全/i.test(text)) return '监管变化会影响模型发布、行业准入和企业采用 AI 的速度。'
@@ -406,7 +496,7 @@ function generateHelenTake(item: VerifiedNews) {
 
   if (/Agent|智能体/i.test(title)) return '我会看它是不是真的进入工作流程，而不是停在“发布了一个助手”的层面。'
   if (/Coding|代码/i.test(title)) return '我越来越觉得，AI 编程会先改变小团队速度，再改变大组织里的研发分工。'
-  if (/大模型|模型发布|国产模型|开源模型|MiniCPM/i.test(title)) return '我更关心它会不会降低开发者和中小团队使用模型的门槛，而不是只看参数。'
+  if (/大模型|模型发布|国产模型|开源模型|MiniCPM|Anthropic|Claude|Opus|OpenAI|GPT|Gemini/i.test(title)) return '我更关心它会不会改变开发者和团队的真实工作流，而不是只看发布时的热度。'
   if (/算力|芯片|GPU|AI Infra|数据中心|昇腾/i.test(text)) return '国内 AI 竞争最后会落到基础设施韧性上，稳定供给比一时热闹更重要。'
   if (/政策|监管|备案|审计|安全/i.test(text)) return 'AI 已经从技术竞赛进入治理阶段，企业不能只讲能力，也要讲责任边界。'
 
@@ -491,6 +581,64 @@ function decodeXml(value: string) {
     .replace(/&#39;/g, "'")
     .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
     .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCharCode(parseInt(code, 16)))
+}
+
+function parseJsonArray(content: string) {
+  try {
+    const parsed = JSON.parse(content)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {}
+
+  const fenced = content.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1]
+  if (fenced) {
+    try {
+      const parsed = JSON.parse(fenced)
+      return Array.isArray(parsed) ? parsed : []
+    } catch {}
+  }
+
+  const arrayText = content.match(/\[[\s\S]*\]/)?.[0]
+  if (!arrayText) return parseJsonObjects(content)
+
+  try {
+    const parsed = JSON.parse(arrayText)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return parseJsonObjects(content)
+  }
+}
+
+function parseJsonObjects(content: string) {
+  const objects = content.match(/\{[\s\S]*?\}(?=\s*,?\s*(?:\{|]|$))/g) || []
+
+  return objects.flatMap((objectText) => {
+    try {
+      return [JSON.parse(objectText)]
+    } catch {
+      return []
+    }
+  })
+}
+
+function parseSearchTextCandidates(content: string): any[] {
+  const blocks = content
+    .split(/\n(?=\s*(?:\d+[.)、]|[-*]\s+)?(?:标题|Title|【))/)
+    .map((block) => block.trim())
+    .filter(Boolean)
+
+  return blocks.map((block) => {
+    const title = block.match(/(?:标题|Title)[:：]\s*([^\n]+)/i)?.[1] ||
+      block.match(/^\s*(?:\d+[.)、]|[-*]\s+)?(.+?)(?:\s+-\s+|\n)/)?.[1] ||
+      ''
+    const source = block.match(/(?:来源|Source)[:：]\s*([^\n]+)/i)?.[1] || ''
+    const url = block.match(/https?:\/\/[^\s)）\]]+/i)?.[0] || ''
+    const publishedTime = block.match(/(?:发布时间|时间|日期|Published|Date)[:：]\s*([^\n]+)/i)?.[1] ||
+      block.match(/\d{4}[-/年]\d{1,2}[-/月]\d{1,2}日?(?:\s+\d{1,2}:\d{2})?/)?.[0] ||
+      ''
+    const snippet = block.match(/(?:摘要|简介|snippet|Summary)[:：]\s*([^\n]+)/i)?.[1] || block
+
+    return { title, source, url, publishedTime, snippet }
+  }).filter((item) => item.title && item.url)
 }
 
 function normalizeNewsKey(title: string) {
