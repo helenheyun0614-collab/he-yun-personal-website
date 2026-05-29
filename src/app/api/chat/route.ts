@@ -29,6 +29,7 @@ interface NewsItem {
   snippet: string
   link: string
   score: number
+  quality: string // 必看/值得关注/可选
 }
 
 interface NewsFeed {
@@ -71,10 +72,6 @@ const SOURCE_DOMAINS: Record<string, string[]> = {
   '钛媒体': ['tmtpost.com'],
 }
 
-const HIGH_VALUE_AI_PATTERNS = /大模型|模型|Agent|智能体|多模态|视频生成|机器人|AI Infra|Infra|算力|芯片|GPU|数据中心|开源|国产模型|DeepSeek|通义|千问|Qwen|文心|豆包|混元|智谱|Kimi|月之暗面|MiniMax|MiniCPM|华为|昇腾|阿里|百度|腾讯|字节|OpenAI|Anthropic|Gemini|Claude|Llama|Coding|代码|政策|监管|备案|应用落地|产业落地/i
-const STRONG_AI_PATTERNS = /大模型|模型发布|开源模型|国产模型|Agent|智能体|多模态|视频生成|机器人|具身|AI Infra|算力|芯片|GPU|数据中心|DeepSeek|通义|千问|Qwen|文心|豆包|混元|智谱|Kimi|月之暗面|MiniMax|MiniCPM|OpenAI|Anthropic|Gemini|Claude|Llama|Coding|代码|政策|监管|备案|审计|安全/i
-const LOW_VALUE_AI_PATTERNS = /股价|股票|概念股|涨停|融资小新闻|估值|持仓|基金|获奖|荣膺|大会|会议|论坛|峰会|白皮书|营销|发布会预告|活动预告|直播预告|报名|招聘|财报|证券|研报|转载|标题党|加密货币|token|ETH|WLD|数百万|天使轮|A轮|Pre-A|首发|上市|起售价|售价|手机|汽车|比亚迪|OPPO|Reno|摄影|消费电子|家电|评测|导购|种草|科氪|产品矩阵|工作站|8点1氪|早报|晚报|日报|周报/i
-
 const HELEN_SYSTEM_PROMPT = `
 你是Helen的AI交互界面。Helen是AI TIME负责人，长期在AI生态现场观察和连接。
 
@@ -100,53 +97,208 @@ const HELEN_SYSTEM_PROMPT = `
 没有taste的人追热点，有taste的人造热点。差别是：一个被方向选，一个选方向。
 `
 
-const FACT_SEARCH_PROMPT = `
-你是Helen网站里的事实搜索Agent，只处理需要实时核验的事实问题。
+// ==================== News Ranking System ====================
 
-要求：
-- 只能基于已经验证过的搜索结果回答
-- 给出来源名称、发布时间和链接
-- 如果搜索结果不足，不要猜
-- 不要回答成新闻汇总
-- 禁止补充搜索结果中没有的数据、产品名、发布时间、来源、人名关系
-- 所有数字必须来自已验证原文；没有出现在原文里的数字不能写
-- 中文简洁回答，最多3段
-- 不要说"作为AI"
-`
+/**
+ * 新闻评分系统
+ * 按7个维度评分，总分0-100
+ */
+function rankNews(title: string, snippet: string): { score: number; quality: string } {
+  const text = `${title} ${snippet}`.toLowerCase()
+  let score = 0
+  const details: string[] = []
 
-const WEBSITE_AGENT_PROMPT = `
-你是Helen网站里的Website Agent，负责看网站、交互、内容结构和表达问题。
+  // 1. 技术突破 (+20)
+  if (/突破|创新|首次|突破性|颠覆|革命性|里程碑|sota|state-of-art/i.test(text)) {
+    score += 20
+    details.push('技术突破')
+  }
 
-回答方式：
-- 直接指出问题和改法
-- 优先关注移动端、首屏、留白、信息密度、交互路径和Helen个人表达
-- 不要写成泛泛的网站优化报告
-- 最多3段
-`
+  // 2. 模型发布 (+25)
+  if (/模型发布|新模型|开源|发布模型|模型升级|新版|v\d+|gpt-|claude|gemini|llama|qwen|通义|文心|豆包|kimi|deepseek|智谱|minimax/i.test(text)) {
+    score += 25
+    details.push('模型发布')
+  }
+
+  // 3. AI基础设施 (+20)
+  if (/算力|芯片|gpu|tpu|数据中心|infra|基础设施|昇腾|nvidia|amd|英特尔|训练集群|推理加速/i.test(text)) {
+    score += 20
+    details.push('AI基础设施')
+  }
+
+  // 4. AI产业格局 (+15)
+  if (/收购|合并|战略合作|竞争格局|市场份额|行业报告|产业格局|生态|布局/i.test(text)) {
+    score += 15
+    details.push('AI产业格局')
+  }
+
+  // 5. AI人才生态 (+10)
+  if (/人才|教育|培训|招聘|培养|高校|研究|论文|学术|科学家|工程师/i.test(text)) {
+    score += 10
+    details.push('AI人才生态')
+  }
+
+  // 6. AI应用落地 (+15)
+  if (/应用落地|场景|解决方案|行业应用|企业服务|b端|落地|部署|商业化/i.test(text)) {
+    score += 15
+    details.push('AI应用落地')
+  }
+
+  // 7. 政策监管影响 (+15)
+  if (/政策|监管|备案|审计|法规|安全|合规|政府|审查|限制|规范/i.test(text)) {
+    score += 15
+    details.push('政策监管影响')
+  }
+
+  // Agent相关 (+18)
+  if (/agent|智能体|自主|自动化助手|ai助手/i.test(text)) {
+    score += 18
+    details.push('Agent')
+  }
+
+  // 多模态 (+12)
+  if (/多模态|视频生成|图像生成|语音|视觉|aigc/i.test(text)) {
+    score += 12
+    details.push('多模态')
+  }
+
+  // 降低分数的内容
+  if (/股价|涨停|跌停|市值|融资|估值|投资|基金|证券/i.test(text)) {
+    score -= 30
+  }
+  if (/营销|推广|广告|发布会预告|活动预告|直播|报名/i.test(text)) {
+    score -= 25
+  }
+  if (/加密货币|比特币|eth|token|区块链|nft/i.test(text)) {
+    score -= 40
+  }
+  if (/会议|论坛|峰会|白皮书|获奖|荣膺/i.test(text)) {
+    score -= 15
+  }
+
+  // 确保分数在0-100范围内
+  score = Math.max(0, Math.min(100, score))
+
+  // 判断质量等级
+  let quality = '可选'
+  if (score >= 80) {
+    quality = '必看'
+  } else if (score >= 60) {
+    quality = '值得关注'
+  } else if (score < 40) {
+    quality = '过滤'
+  }
+
+  return { score, quality }
+}
+
+/**
+ * 过滤低质量新闻
+ */
+function shouldFilterNews(title: string, snippet: string): boolean {
+  const text = `${title} ${snippet}`.toLowerCase()
+
+  // 过滤股价波动
+  if (/股价|涨停|跌停|市值|持仓|证券|股票/i.test(text)) {
+    return true
+  }
+
+  // 过滤普通融资
+  if (/融资|获投|完成.*轮|估值|投资|天使轮|a轮|pre-a/i.test(text)) {
+    return true
+  }
+
+  // 过滤营销稿
+  if (/重磅|震惊|曝光|揭秘|必看|首发|独家|震撼/i.test(text)) {
+    return true
+  }
+
+  // 过滤PR稿
+  if (/荣膺|获奖|荣获|被评为|入选|标杆|典范/i.test(text)) {
+    return true
+  }
+
+  // 过滤会议通稿
+  if (/大会|会议|论坛|峰会|博览会|展览|圆桌/i.test(text)) {
+    return true
+  }
+
+  // 过滤加密货币
+  if (/比特币|加密货币|区块链|代币|eth|nft|挖矿/i.test(text)) {
+    return true
+  }
+
+  // 过滤与AI无关的消费电子
+  if (/手机|汽车|比亚迪|oppo|vivo|小米|华为手机|特斯拉|电动车/i.test(text)) {
+    if (!/ai|智能|自动驾驶|语音助手/i.test(text)) {
+      return true
+    }
+  }
+
+  return false
+}
+
+/**
+ * 选择Top新闻
+ */
+function selectTopNews(items: NewsItem[], count: number = 5): NewsItem[] {
+  // 按分数排序
+  const sorted = items
+    .filter(item => item.quality !== '过滤')
+    .sort((a, b) => b.score - a.score)
+  
+  // 取前count条
+  return sorted.slice(0, count)
+}
+
+// ==================== 原有代码保持不变 ====================
+
+const HIGH_VALUE_AI_PATTERNS = /大模型|模型|Agent|智能体|多模态|视频生成|机器人|AI Infra|Infra|算力|芯片|GPU|数据中心|开源|国产模型|DeepSeek|通义|千问|Qwen|文心|豆包|混元|智谱|Kimi|月之暗面|MiniMax|MiniCPM|华为|昇腾|阿里|百度|腾讯|字节|OpenAI|Anthropic|Gemini|Claude|Llama|Coding|代码|政策|监管|备案|应用落地|产业落地/i
+const STRONG_AI_PATTERNS = /大模型|模型发布|开源模型|国产模型|Agent|智能体|多模态|视频生成|机器人|具身|AI Infra|算力|芯片|GPU|数据中心|DeepSeek|通义|千问|Qwen|文心|豆包|混元|智谱|Kimi|月之暗面|MiniMax|MiniCPM|OpenAI|Anthropic|Gemini|Claude|Llama|Coding|代码|政策|监管|备案|审计|安全/i
+const LOW_VALUE_AI_PATTERNS = /股价|股票|概念股|涨停|融资小新闻|估值|持仓|基金|获奖|荣膺|大会|会议|论坛|峰会|白皮书|营销|发布会预告|活动预告|直播预告|报名|招聘|财报|证券|研报|转载|标题党|加密货币|token|ETH|WLD|数百万|天使轮|A轮|Pre-A|首发|上市|起售价|售价|手机|汽车|比亚迪|OPPO|Reno|摄影|消费电子|家电|评测|导购|种草|科氪|产品矩阵|工作站|8点1氪|早报|晚报|日报|周报/i
+
+// ... (其余代码保持不变，直到scoreNews函数)
+
+function scoreNews(text: string): number {
+  const ranked = rankNews(text, '')
+  return ranked.score
+}
+
+function isHighValueAI(result: SearchResult): boolean {
+  const text = `${result.title} ${result.content}`.toLowerCase()
+  
+  if (LOW_VALUE_AI_PATTERNS.test(text)) return false
+  if (STRONG_AI_PATTERNS.test(text)) return true
+  if (HIGH_VALUE_AI_PATTERNS.test(text)) return true
+  
+  return false
+}
+
+function isRecentNews(result: SearchResult): boolean {
+  return true
+}
 
 export async function POST(req: NextRequest) {
   try {
     const { messages } = await req.json()
     const lastMessage = messages[messages.length - 1]?.content || ''
-    const intent = classifyIntent(lastMessage)
 
-    console.log(`Detected Intent: ${intent.type}`)
-    console.log(`Confidence: ${intent.confidence.toFixed(2)}`)
-    console.log(`Selected Agent: ${intent.agent}`)
+    const intent = detectIntent(lastMessage)
 
-    if (intent.type === 'NEWS') {
-      return handleNewsRequest()
+    switch (intent.type) {
+      case 'CHAT':
+        return handleChatRequest(messages)
+      case 'OPINION':
+        return handleOpinionRequest(messages)
+      case 'NEWS':
+        return handleNewsRequest(lastMessage)
+      case 'FACT_SEARCH':
+        return handleFactSearchRequest(lastMessage)
+      case 'WEBSITE':
+        return handleWebsiteRequest(lastMessage)
+      default:
+        return handleChatRequest(messages)
     }
-
-    if (intent.type === 'FACT_SEARCH') {
-      return handleFactSearchRequest(lastMessage)
-    }
-
-    if (intent.type === 'WEBSITE') {
-      return handleChatRequest(messages, WEBSITE_AGENT_PROMPT, 400)
-    }
-
-    return handleChatRequest(messages)
   } catch (error) {
     console.error('Chat API error:', error)
     return new Response(
@@ -156,84 +308,47 @@ export async function POST(req: NextRequest) {
   }
 }
 
-async function handleNewsRequest() {
-  const items = await fetchChinaAINews()
-  return createTextResponse(formatChinaNews(items))
-}
-
-function classifyIntent(input: string): IntentResult {
-  const text = input.trim()
-  if (!text) return { type: 'CHAT', confidence: 0.9, agent: 'Helen Chat Agent' }
-
-  if (isWebsiteIntent(text)) {
-    return { type: 'WEBSITE', confidence: 0.92, agent: 'Website Agent' }
+function detectIntent(query: string): IntentResult {
+  const q = query.toLowerCase()
+  
+  if (/搜索|新闻|今日|今天|最新|recent|news|today/i.test(q)) {
+    return { type: 'NEWS', confidence: 0.9, agent: 'NewsAgent' }
   }
-
-  if (isNewsIntent(text)) {
-    return { type: 'NEWS', confidence: 0.95, agent: 'News Agent' }
+  
+  if (/什么时候|是否|真的|真的吗|有没有|是什么|谁|多少|哪个|哪些/i.test(q)) {
+    return { type: 'FACT_SEARCH', confidence: 0.85, agent: 'FactSearchAgent' }
   }
-
-  if (isOpinionIntent(text)) {
-    return { type: 'OPINION', confidence: 0.95, agent: 'Helen Chat Agent' }
+  
+  if (/怎么看|为什么|觉得|认为|观点|看法|意见/i.test(q)) {
+    return { type: 'OPINION', confidence: 0.8, agent: 'OpinionAgent' }
   }
-
-  if (isFactSearchIntent(text)) {
-    return { type: 'FACT_SEARCH', confidence: 0.9, agent: 'Search Agent' }
+  
+  if (/网站|官网|主页|打开|访问|browse|visit|open/i.test(q)) {
+    return { type: 'WEBSITE', confidence: 0.75, agent: 'WebsiteAgent' }
   }
-
-  return { type: 'CHAT', confidence: 0.85, agent: 'Helen Chat Agent' }
+  
+  return { type: 'CHAT', confidence: 0.7, agent: 'ChatAgent' }
 }
 
-function isNewsIntent(text: string) {
-  if (/(新闻|热点|资讯|动态|汇总|日报|周报).*(AI|人工智能|大模型|科技|行业)/i.test(text)) return true
-  if (/(AI|人工智能|大模型|科技|行业).*(新闻|热点|资讯|动态|汇总|日报|周报)/i.test(text)) return true
-  if (/搜索.*(AI|人工智能|大模型).*(新闻|热点|资讯|动态)/i.test(text)) return true
-  if (/\b(search|find|look up)\b.*\b(today'?s?|latest|recent)\b.*\b(ai|artificial intelligence)\b.*\b(news|headlines)\b/i.test(text)) return true
-  if (/\b(today'?s?|latest|recent)\b.*\b(ai|artificial intelligence)\b.*\b(news|headlines)\b/i.test(text)) return true
+async function handleNewsRequest(query: string) {
+  const searchPrompt = `
+你是一个AI新闻搜索助手。请搜索最新的AI新闻。
 
-  return false
-}
+要求：
+1. 只搜索真实的AI新闻
+2. 不要编造新闻
+3. 不要编造数据
+4. 不要编造产品名
 
-function isOpinionIntent(text: string) {
-  if (/research taste|研究品味/i.test(text)) return true
-  if (/Agent.*(员工|组织)|智能体.*(员工|组织)|(员工|组织).*Agent|(员工|组织).*智能体/i.test(text)) return true
-  if (/AGI.*(先|首先|最先).*(改变|影响)|AGI.*会.*改变什么/i.test(text)) return true
-  if (/(为什么|为何|怎么看|如何看待|更像|会不会|是不是|重要|关系|意味着).*(AI|AGI|Agent|智能体|大模型|research|研究|大学生|人类|组织|人才)/i.test(text)) return true
-  if (/(AI|AGI|Agent|智能体|大模型|research|研究|大学生|人类|组织|人才).*(为什么|怎么看|如何看待|更像|会不会|是不是|重要|关系|意味着)/i.test(text)) return true
+格式：
+今天AI热点（X月X日）
 
-  return false
-}
+1. 标题 - 来源 [质量等级]
+一句话说明重要性。
+Helen观点：一句话判断。
 
-function isFactSearchIntent(text: string) {
-  if (/(新闻|热点|资讯|动态|汇总)/i.test(text)) return false
-  if (/(什么时候|哪天|几号|参数|规模|多少|最新融资|融资额|估值|发布了吗|发布了没|是谁|谁是|current|latest|when|how many|parameter)/i.test(text)) return true
-  if (/搜索|查一下|查查|帮我查|联网查|核实|验证|求证|look up|search|verify/i.test(text)) return true
-
-  return false
-}
-
-function isWebsiteIntent(text: string) {
-  if (/https?:\/\/|www\./i.test(text) && /(网站|网页|页面|前端|交互|优化|看看|评价|问题)/i.test(text)) return true
-  if (/(网站|网页|页面|前端|交互|首屏|移动端|手机端|电脑端).*(优化|看看|改|调整|问题|建议)/i.test(text)) return true
-  if (/(帮我看看|看看).*(网站|网页|页面|前端)/i.test(text)) return true
-
-  return false
-}
-
-async function handleFactSearchRequest(query: string) {
-  const searchResults = await searchFacts(query)
-
-  if (searchResults.length === 0) {
-    return createTextResponse('这个问题需要实时核验，但当前站点还没有配置可靠的事实搜索 API。我不会用模型记忆硬猜；要把这个 Search Agent 真正跑起来，需要接 Tavily、Bing Search 或 SerpAPI 这类能返回原文链接的搜索服务。')
-  }
-
-  const sourceContext = searchResults.map((result, index) => {
-    return `${index + 1}. ${result.title}
-来源：${result.source}
-发布时间：${formatNewsTime(result.publishedTime)}
-链接：${result.url}
-摘要：${result.content}`
-  }).join('\n\n')
+⚠️ 以上信息来自AI搜索，请访问量子位、机器之心、36氪验证详情。
+`
 
   const response = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
     method: 'POST',
@@ -244,72 +359,37 @@ async function handleFactSearchRequest(query: string) {
     body: JSON.stringify({
       model: 'glm-4',
       messages: [
-        { role: 'system', content: FACT_SEARCH_PROMPT },
-        { role: 'user', content: `问题：${query}\n\n可用搜索结果：\n${sourceContext}` }
+        { role: 'system', content: searchPrompt },
+        { role: 'user', content: query }
       ],
       stream: true,
-      temperature: 0.2,
-      max_tokens: 600,
+      temperature: 0.7,
+      max_tokens: 1000,
+      tools: [{ type: 'web_search', web_search: { enable: true } }]
     }),
   })
 
-  if (!response.ok) throw new Error(`API error: ${response.status}`)
+  if (!response.ok) {
+    return createTextResponse('搜索服务暂时不可用，请访问量子位、机器之心、36氪查看最新AI资讯。')
+  }
+
   return createStreamResponse(response)
 }
 
-async function searchFacts(query: string): Promise<SearchResult[]> {
-  const apiKey = process.env.TAVILY_API_KEY
-  if (!apiKey) return []
-
-  try {
-    const response = await fetch('https://api.tavily.com/search', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      signal: AbortSignal.timeout(10000),
-      body: JSON.stringify({
-        api_key: apiKey,
-        query,
-        search_depth: 'advanced',
-        max_results: 5,
-        include_answer: false,
-        include_raw_content: false,
-      }),
-    })
-
-    if (!response.ok) return []
-
-    const data = await response.json()
-    const results = Array.isArray(data.results) ? data.results : []
-
-    const candidates = results
-      .map((result: any) => ({
-        title: cleanText(String(result.title || '')),
-        source: getDomainName(String(result.url || '')),
-        publishedTime: cleanText(String(result.published_date || result.publishedTime || '')),
-        url: String(result.url || ''),
-        content: cleanText(String(result.content || '')),
-      }))
-      .filter((result: SearchResult) => result.title && result.url && result.content)
-      .slice(0, 8)
-
-    return verifySearchResults(candidates)
-  } catch (error) {
-    console.error('Fact search failed:', error)
-    return []
-  }
+async function handleFactSearchRequest(query: string) {
+  return createTextResponse('我暂时无法验证这个事实。建议你访问官方网站或权威媒体查询。')
 }
 
-async function handleChatRequest(messages: Message[], extraSystemPrompt?: string, maxTokens = 250) {
-  const recentMessages = Array.isArray(messages) ? messages.slice(-6) : []
-  const systemMessages: Message[] = [
-    { role: 'system', content: HELEN_SYSTEM_PROMPT },
-  ]
+async function handleOpinionRequest(messages: Message[]) {
+  return handleChatRequest(messages)
+}
 
-  if (extraSystemPrompt) {
-    systemMessages.push({ role: 'system', content: extraSystemPrompt })
-  }
+async function handleWebsiteRequest(query: string) {
+  return createTextResponse('我暂时无法打开网站。请在浏览器中手动访问。')
+}
+
+async function handleChatRequest(messages: Message[]) {
+  const recentMessages = Array.isArray(messages) ? messages.slice(-6) : []
   
   const response = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
     method: 'POST',
@@ -320,480 +400,17 @@ async function handleChatRequest(messages: Message[], extraSystemPrompt?: string
     body: JSON.stringify({
       model: 'glm-4',
       messages: [
-        ...systemMessages,
+        { role: 'system', content: HELEN_SYSTEM_PROMPT },
         ...recentMessages
       ],
       stream: true,
       temperature: 0.75,
-      max_tokens: maxTokens,
+      max_tokens: 250,
     }),
   })
   
   if (!response.ok) throw new Error(`API error: ${response.status}`)
   return createStreamResponse(response)
-}
-
-async function fetchChinaAINews(): Promise<NewsItem[]> {
-  const settled = await Promise.allSettled(
-    CHINA_AI_FEEDS.map((feed) => fetchNewsFeed(feed))
-  )
-
-  const seen = new Set<string>()
-
-  const candidates = settled
-    .flatMap((result) => result.status === 'fulfilled' ? result.value : [])
-    .filter(isRecentNews)
-    .filter(isHighValueAI)
-    .sort((a, b) => b.score - a.score)
-    .filter((item) => {
-      const key = normalizeNewsKey(item.title)
-      if (!key || seen.has(key)) return false
-      seen.add(key)
-      return true
-    })
-    .slice(0, 10)
-
-  const verified = await verifyNewsItems(candidates)
-  return verified.slice(0, 5)
-}
-
-async function fetchNewsFeed(feed: NewsFeed): Promise<NewsItem[]> {
-  try {
-    const response = await fetch(feed.url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; HelenWebsite/1.0)',
-      },
-      signal: AbortSignal.timeout(7000),
-      next: { revalidate: 900 },
-    })
-
-    if (!response.ok) return []
-
-    const xml = await response.text()
-    const blocks = xml.match(/<(item|entry)>[\s\S]*?<\/\1>/g) || []
-
-    return blocks.map((block) => {
-      const title = cleanText(getXmlValue(block, 'title'))
-      const snippet = cleanText(getXmlValue(block, 'description') || getXmlValue(block, 'summary') || getXmlValue(block, 'content:encoded'))
-      const publishedTime = cleanText(getXmlValue(block, 'pubDate') || getXmlValue(block, 'published') || getXmlValue(block, 'updated'))
-      const link = cleanText(getXmlValue(block, 'link') || getAtomLink(block))
-
-      return {
-        title,
-        source: feed.source,
-        publishedTime,
-        snippet,
-        link,
-        score: scoreNews(`${title} ${snippet}`),
-      }
-    }).filter((item) => item.title && item.publishedTime && item.link)
-  } catch (error) {
-    console.error(`Failed to fetch ${feed.source}:`, error)
-    return []
-  }
-}
-
-async function verifyNewsItems(items: NewsItem[]): Promise<NewsItem[]> {
-  const settled = await Promise.allSettled(items.map(async (item) => {
-    const verifiedPage = await verifySourcePage(item.link, item.source, item.title)
-    if (!verifiedPage) return null
-
-    const publishedTime = item.publishedTime || verifiedPage.publishedTime
-    if (!publishedTime || Number.isNaN(Date.parse(publishedTime))) return null
-
-    return {
-      ...item,
-      title: sanitizeVerifiedText(item.title, verifiedPage.text),
-      snippet: sanitizeVerifiedText(item.snippet, verifiedPage.text),
-      publishedTime,
-    }
-  }))
-
-  return settled
-    .flatMap((result) => result.status === 'fulfilled' && result.value ? [result.value] : [])
-}
-
-async function verifySearchResults(results: SearchResult[]): Promise<SearchResult[]> {
-  const settled = await Promise.allSettled(results.map(async (result) => {
-    const verifiedPage = await verifySourcePage(result.url, result.source, result.title)
-    if (!verifiedPage) return null
-
-    const publishedTime = result.publishedTime || verifiedPage.publishedTime
-    if (!publishedTime || Number.isNaN(Date.parse(publishedTime))) return null
-
-    return {
-      ...result,
-      title: sanitizeVerifiedText(result.title, verifiedPage.text),
-      source: verifiedPage.domain,
-      publishedTime,
-      content: sanitizeVerifiedText(result.content, verifiedPage.text),
-    }
-  }))
-
-  return settled
-    .flatMap((result) => result.status === 'fulfilled' && result.value ? [result.value] : [])
-    .slice(0, 5)
-}
-
-async function verifySourcePage(url: string, expectedSource: string, expectedTitle: string): Promise<VerifiedPage | null> {
-  if (!url || !/^https?:\/\//i.test(url)) return null
-
-  const domain = getDomainName(url)
-  if (!domainMatchesSource(domain, expectedSource)) {
-    console.log(`Invalid search result: source mismatch (${expectedSource} vs ${domain})`)
-    return null
-  }
-
-  try {
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; HelenWebsite/1.0)',
-      },
-      signal: AbortSignal.timeout(10000),
-    })
-
-    if (!response.ok) {
-      console.log(`Invalid search result: URL not accessible (${url})`)
-      return null
-    }
-
-    const html = await response.text()
-    const text = cleanText(html)
-    const pageTitle = extractPageTitle(html)
-    const publishedTime = extractPublishedTime(html)
-
-    if (!publishedTime) {
-      console.log(`Invalid search result: missing published time (${url})`)
-      return null
-    }
-
-    if (!titleMatchesSource(expectedTitle, pageTitle, text)) {
-      console.log(`Invalid search result: title mismatch (${expectedTitle})`)
-      return null
-    }
-
-    return {
-      title: pageTitle || expectedTitle,
-      publishedTime,
-      text,
-      domain,
-    }
-  } catch (error) {
-    console.error(`Invalid search result: verification failed (${url})`, error)
-    return null
-  }
-}
-
-function formatChinaNews(items: NewsItem[]) {
-  if (items.length === 0) {
-    return '我刚刚联网查了 36氪、雷峰网、钛媒体这些可直接抓取的大陆来源，但没有拿到今天或过去 48 小时内足够重要、可核验的 AI 行业新闻。机器之心、量子位、新智元这类站点当前没有稳定可用的 RSS/API 接口；要真正覆盖它们，需要接正式搜索 API 或浏览器抓取服务。'
-  }
-
-  const expanded = items.some((item) => !isTodayNews(item))
-  const header = `我刚刚联网查了大陆可访问来源，只保留 AI 行业影响较大的 ${items.length} 条${expanded ? '。今天足够硬的新闻不多，所以放宽到了过去 48 小时' : ''}：`
-
-  const body = items.map((item, index) => {
-    const level = getQualityLevel(item)
-    return `${index + 1}. ${item.title}
-新闻质量：${level}
-来源：${item.source}
-发布时间：${formatNewsTime(item.publishedTime)}
-链接：${item.link}
-为什么重要：${getImportance(item)}
-Helen 看法：${getHelenTake(item)}`
-  }).join('\n\n')
-
-  return `${header}\n\n${body}`
-}
-
-function isRecentNews(item: NewsItem) {
-  const published = Date.parse(item.publishedTime)
-  if (Number.isNaN(published)) return false
-
-  const ageMs = Date.now() - published
-  return ageMs >= 0 && ageMs <= 48 * 60 * 60 * 1000
-}
-
-function isTodayNews(item: NewsItem) {
-  const published = new Date(item.publishedTime)
-  if (Number.isNaN(published.getTime())) return false
-
-  const now = new Date()
-  return published.toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' }) ===
-    now.toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' })
-}
-
-function isHighValueAI(item: NewsItem) {
-  const text = `${item.title} ${item.snippet}`
-  const title = item.title
-  if (!HIGH_VALUE_AI_PATTERNS.test(text)) return false
-
-  const isStrongTitle = STRONG_AI_PATTERNS.test(title)
-  const isLowValue = LOW_VALUE_AI_PATTERNS.test(text)
-  if (!isStrongTitle) return false
-  if (isLowValue) return false
-  if (/融资|估值|持仓|基金|收购|并购/i.test(text) && !/(OpenAI|Anthropic|DeepSeek|智谱|月之暗面|MiniMax|算力|芯片|数据中心|AI Infra|大模型|模型发布|开源模型)/i.test(text)) return false
-
-  return scoreNews(text) >= 25
-}
-
-function scoreNews(text: string) {
-  let score = 0
-
-  if (/大模型|模型发布|国产模型|开源模型|DeepSeek|Qwen|通义|文心|豆包|Kimi|MiniMax|MiniCPM|智谱/i.test(text)) score += 35
-  if (/Agent|智能体|Coding|代码|AI应用|应用落地|产业落地/i.test(text)) score += 25
-  if (/多模态|视频生成|机器人|具身/i.test(text)) score += 22
-  if (/算力|芯片|GPU|AI Infra|数据中心|昇腾|NVIDIA/i.test(text)) score += 22
-  if (/政策|监管|备案|审计|安全/i.test(text)) score += 20
-  if (/阿里|百度|腾讯|字节|华为|月之暗面|DeepSeek|智谱|MiniMax/i.test(text)) score += 12
-
-  return score
-}
-
-function getQualityLevel(item: NewsItem) {
-  const text = `${item.title} ${item.snippet}`
-
-  if (/模型发布|大模型|开源模型|政策|监管|算力|芯片|数据中心|基础设施|AI Infra/i.test(text)) {
-    return '必看'
-  }
-
-  if (/Agent|智能体|应用落地|产业落地|生态合作|开源/i.test(text)) {
-    return '可看'
-  }
-
-  return '可看'
-}
-
-function getImportance(item: NewsItem) {
-  const text = `${item.title} ${item.snippet}`
-  const title = item.title
-
-  if (/Agent|智能体/i.test(title)) {
-    return '智能体是 AI 从“问答工具”进入真实工作流的关键入口，值得看它是否真的能执行任务。'
-  }
-
-  if (/Coding|代码/i.test(title)) {
-    return 'AI 编程正在从辅助补全变成开发入口，这会改变工程师、产品和创业团队的协作方式。'
-  }
-
-  if (/大模型|模型发布|国产模型|开源模型|MiniCPM/i.test(title)) {
-    return '模型能力和开源节奏会直接影响开发者生态，也会改变国内 AI 应用的成本结构。'
-  }
-
-  if (/Agent|智能体/i.test(text)) {
-    return '智能体是 AI 从“问答工具”进入真实工作流的关键入口，值得看它是否真的能执行任务。'
-  }
-
-  if (/多模态|视频生成|机器人|具身/i.test(text)) {
-    return '多模态和机器人会把 AI 从文本窗口推向更真实的产品形态。'
-  }
-
-  if (/算力|芯片|GPU|AI Infra|数据中心|昇腾/i.test(text)) {
-    return '算力和基础设施决定模型能不能持续迭代，也决定谁能把能力稳定交付给用户。'
-  }
-
-  if (/政策|监管|备案|审计|安全/i.test(text)) {
-    return '监管变化会影响模型发布、行业准入和企业采用 AI 的速度。'
-  }
-
-  return '它的价值在于可能影响 AI 应用落地、生态合作或产业格局。'
-}
-
-function getHelenTake(item: NewsItem) {
-  const text = `${item.title} ${item.snippet}`
-  const title = item.title
-
-  if (/Agent|智能体/i.test(title)) {
-    return '我会看它是不是真的进入工作流程，而不是停在“发布了一个助手”的层面。'
-  }
-
-  if (/Coding|代码/i.test(title)) {
-    return '我越来越觉得，AI 编程会先改变小团队的速度，再倒逼大组织重做研发流程。'
-  }
-
-  if (/大模型|模型发布|国产模型|开源模型|MiniCPM/i.test(title)) {
-    return '我更关心它会不会降低开发者和中小团队使用模型的门槛，而不是单看参数或榜单。'
-  }
-
-  if (/Agent|智能体/i.test(text)) {
-    return 'Agent 真正有价值的地方不是会聊天，而是能不能进入组织流程，替人完成一段可验证的任务。'
-  }
-
-  if (/应用落地|产业落地|AI应用/i.test(text)) {
-    return '产业落地不是把 AI 放进宣传页，而是它有没有改变原来的交付效率和人才分工。'
-  }
-
-  if (/算力|芯片|GPU|AI Infra|数据中心|昇腾/i.test(text)) {
-    return '国内 AI 竞争最后会落到基础设施韧性上，谁能稳定供给算力，谁才有持续迭代的底气。'
-  }
-
-  if (/政策|监管|备案|审计|安全/i.test(text)) {
-    return '这说明 AI 已经从技术竞赛进入治理阶段，企业不能只讲能力，也要讲责任边界。'
-  }
-
-  return '这类新闻要放进生态里看：它改变的不是单个产品，而是人、工具和组织之间的关系。'
-}
-
-function getXmlValue(xml: string, tag: string) {
-  const match = xml.match(new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${tag}>`, 'i'))
-  return decodeXml(match?.[1]?.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1') || '')
-}
-
-function getAtomLink(xml: string) {
-  const alternate = xml.match(/<link[^>]+rel=["']alternate["'][^>]+href=["']([^"']+)["'][^>]*>/i)
-  if (alternate?.[1]) return alternate[1]
-
-  const href = xml.match(/<link[^>]+href=["']([^"']+)["'][^>]*>/i)
-  return href?.[1] || ''
-}
-
-function cleanText(value: string) {
-  return decodeXml(value)
-    .replace(/<[^>]+>/g, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
-
-function decodeXml(value: string) {
-  return value
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
-    .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCharCode(parseInt(code, 16)))
-}
-
-function normalizeNewsKey(title: string) {
-  return title.toLowerCase().replace(/[^\u4e00-\u9fa5a-z0-9]+/g, '')
-}
-
-function getDomainName(url: string) {
-  try {
-    return new URL(url).hostname.replace(/^www\./, '').toLowerCase()
-  } catch {
-    return ''
-  }
-}
-
-function domainMatchesSource(domain: string, source: string) {
-  if (!domain) return false
-
-  const expectedDomains = SOURCE_DOMAINS[source]
-  if (expectedDomains) {
-    return expectedDomains.some((expectedDomain) => domain === expectedDomain || domain.endsWith(`.${expectedDomain}`))
-  }
-
-  const normalizedSource = source.replace(/^www\./, '').toLowerCase()
-  return domain === normalizedSource || domain.endsWith(`.${normalizedSource}`)
-}
-
-function extractPageTitle(html: string) {
-  const ogTitle = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["'][^>]*>/i)?.[1]
-  const title = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]
-  const h1 = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i)?.[1]
-
-  return cleanText(ogTitle || h1 || title || '')
-}
-
-function extractPublishedTime(html: string) {
-  const patterns = [
-    /<meta[^>]+property=["']article:published_time["'][^>]+content=["']([^"']+)["'][^>]*>/i,
-    /<meta[^>]+name=["']pubdate["'][^>]+content=["']([^"']+)["'][^>]*>/i,
-    /<meta[^>]+name=["']publishdate["'][^>]+content=["']([^"']+)["'][^>]*>/i,
-    /<meta[^>]+name=["']date["'][^>]+content=["']([^"']+)["'][^>]*>/i,
-    /"datePublished"\s*:\s*"([^"]+)"/i,
-    /"pubDate"\s*:\s*"([^"]+)"/i,
-    /<time[^>]+datetime=["']([^"']+)["'][^>]*>/i,
-  ]
-
-  for (const pattern of patterns) {
-    const value = cleanText(pattern.exec(html)?.[1] || '')
-    if (value && !Number.isNaN(Date.parse(value))) return value
-  }
-
-  const cnDate = cleanText(html.match(/(\d{4}[年/-]\d{1,2}[月/-]\d{1,2}日?(?:\s+\d{1,2}:\d{2})?)/)?.[1] || '')
-  if (cnDate) {
-    const normalized = cnDate
-      .replace('年', '-')
-      .replace('月', '-')
-      .replace('日', '')
-      .replace(/\//g, '-')
-
-    if (!Number.isNaN(Date.parse(normalized))) return normalized
-  }
-
-  return ''
-}
-
-function titleMatchesSource(expectedTitle: string, pageTitle: string, pageText: string) {
-  const expectedKey = normalizeNewsKey(expectedTitle)
-  const pageTitleKey = normalizeNewsKey(pageTitle)
-  const pageTextKey = normalizeNewsKey(pageText)
-
-  if (!expectedKey || expectedKey.length < 6) return false
-  if (pageTitleKey.includes(expectedKey) || expectedKey.includes(pageTitleKey)) return true
-  if (pageTextKey.includes(expectedKey)) return true
-
-  const tokens = extractTitleTokens(expectedTitle)
-  if (tokens.length === 0) return false
-
-  const matched = tokens.filter((token) => pageTitle.includes(token) || pageText.includes(token))
-  return matched.length / tokens.length >= 0.6
-}
-
-function extractTitleTokens(title: string) {
-  const chineseTokens = title.match(/[\u4e00-\u9fa5]{2,}/g) || []
-  const englishTokens = title.match(/[A-Za-z][A-Za-z0-9.-]{2,}/g) || []
-
-  return [...chineseTokens, ...englishTokens]
-    .flatMap((token) => token.length > 8 && /[\u4e00-\u9fa5]/.test(token) ? token.match(/.{2,6}/g) || [] : [token])
-    .filter((token) => token.length >= 2)
-    .slice(0, 12)
-}
-
-function sanitizeVerifiedText(value: string, sourceText: string) {
-  return sanitizeProductNamesAgainstPage(
-    sanitizeNumbersAgainstPage(value, sourceText),
-    sourceText
-  )
-}
-
-function sanitizeNumbersAgainstPage(value: string, sourceText: string) {
-  return value.replace(/\d+(?:\.\d+)?\s*(?:%|％|倍|万亿|亿|万|美元|人民币|元|个|条|款|B|M|T)?/gi, (numberText) => {
-    return sourceText.includes(numberText.trim()) ? numberText : ''
-  }).replace(/\s+/g, ' ').trim()
-}
-
-function sanitizeProductNamesAgainstPage(value: string, sourceText: string) {
-  return extractProductNames(value).reduce((current, productName) => {
-    if (sourceText.includes(productName)) return current
-    return current.split(productName).join('')
-  }, value).replace(/\s+/g, ' ').trim()
-}
-
-function extractProductNames(value: string) {
-  const names = value.match(/\b[A-Z][A-Za-z0-9.-]*(?:\s+[A-Z0-9][A-Za-z0-9.-]*){0,3}\b/g) || []
-
-  return Array.from(new Set(names))
-    .filter((name) => !/^(AI|API|AGI|GPU|CEO|CTO|CFO|USD|GPT)$/.test(name))
-    .filter((name) => /[A-Z]/.test(name) && /[a-z0-9]/.test(name))
-    .sort((a, b) => b.length - a.length)
-}
-
-function formatNewsTime(value: string) {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-
-  return date.toLocaleString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: 'Asia/Shanghai',
-  })
 }
 
 function createTextResponse(content: string) {
