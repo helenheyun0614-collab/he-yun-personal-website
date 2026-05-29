@@ -38,8 +38,17 @@ interface NewsFeed {
 
 interface SearchResult {
   title: string
+  source: string
+  publishedTime: string
   url: string
   content: string
+}
+
+interface VerifiedPage {
+  title: string
+  publishedTime: string
+  text: string
+  domain: string
 }
 
 type IntentType = 'CHAT' | 'OPINION' | 'NEWS' | 'FACT_SEARCH' | 'WEBSITE'
@@ -55,6 +64,12 @@ const CHINA_AI_FEEDS: NewsFeed[] = [
   { source: '雷峰网', url: 'https://www.leiphone.com/feed' },
   { source: '钛媒体', url: 'https://www.tmtpost.com/feed' },
 ]
+
+const SOURCE_DOMAINS: Record<string, string[]> = {
+  '36氪': ['36kr.com'],
+  '雷峰网': ['leiphone.com'],
+  '钛媒体': ['tmtpost.com'],
+}
 
 const HIGH_VALUE_AI_PATTERNS = /大模型|模型|Agent|智能体|多模态|视频生成|机器人|AI Infra|Infra|算力|芯片|GPU|数据中心|开源|国产模型|DeepSeek|通义|千问|Qwen|文心|豆包|混元|智谱|Kimi|月之暗面|MiniMax|MiniCPM|华为|昇腾|阿里|百度|腾讯|字节|OpenAI|Anthropic|Gemini|Claude|Llama|Coding|代码|政策|监管|备案|应用落地|产业落地/i
 const STRONG_AI_PATTERNS = /大模型|模型发布|开源模型|国产模型|Agent|智能体|多模态|视频生成|机器人|具身|AI Infra|算力|芯片|GPU|数据中心|DeepSeek|通义|千问|Qwen|文心|豆包|混元|智谱|Kimi|月之暗面|MiniMax|MiniCPM|OpenAI|Anthropic|Gemini|Claude|Llama|Coding|代码|政策|监管|备案|审计|安全/i
@@ -89,10 +104,12 @@ const FACT_SEARCH_PROMPT = `
 你是Helen网站里的事实搜索Agent，只处理需要实时核验的事实问题。
 
 要求：
-- 必须基于联网搜索结果回答
-- 给出来源名称和链接
+- 只能基于已经验证过的搜索结果回答
+- 给出来源名称、发布时间和链接
 - 如果搜索结果不足，不要猜
 - 不要回答成新闻汇总
+- 禁止补充搜索结果中没有的数据、产品名、发布时间、来源、人名关系
+- 所有数字必须来自已验证原文；没有出现在原文里的数字不能写
 - 中文简洁回答，最多3段
 - 不要说"作为AI"
 `
@@ -212,6 +229,8 @@ async function handleFactSearchRequest(query: string) {
 
   const sourceContext = searchResults.map((result, index) => {
     return `${index + 1}. ${result.title}
+来源：${result.source}
+发布时间：${formatNewsTime(result.publishedTime)}
 链接：${result.url}
 摘要：${result.content}`
   }).join('\n\n')
@@ -264,14 +283,18 @@ async function searchFacts(query: string): Promise<SearchResult[]> {
     const data = await response.json()
     const results = Array.isArray(data.results) ? data.results : []
 
-    return results
+    const candidates = results
       .map((result: any) => ({
         title: cleanText(String(result.title || '')),
+        source: getDomainName(String(result.url || '')),
+        publishedTime: cleanText(String(result.published_date || result.publishedTime || '')),
         url: String(result.url || ''),
         content: cleanText(String(result.content || '')),
       }))
       .filter((result: SearchResult) => result.title && result.url && result.content)
-      .slice(0, 5)
+      .slice(0, 8)
+
+    return verifySearchResults(candidates)
   } catch (error) {
     console.error('Fact search failed:', error)
     return []
@@ -317,7 +340,7 @@ async function fetchChinaAINews(): Promise<NewsItem[]> {
 
   const seen = new Set<string>()
 
-  return settled
+  const candidates = settled
     .flatMap((result) => result.status === 'fulfilled' ? result.value : [])
     .filter(isRecentNews)
     .filter(isHighValueAI)
@@ -328,7 +351,10 @@ async function fetchChinaAINews(): Promise<NewsItem[]> {
       seen.add(key)
       return true
     })
-    .slice(0, 5)
+    .slice(0, 10)
+
+  const verified = await verifyNewsItems(candidates)
+  return verified.slice(0, 5)
 }
 
 async function fetchNewsFeed(feed: NewsFeed): Promise<NewsItem[]> {
@@ -364,6 +390,97 @@ async function fetchNewsFeed(feed: NewsFeed): Promise<NewsItem[]> {
   } catch (error) {
     console.error(`Failed to fetch ${feed.source}:`, error)
     return []
+  }
+}
+
+async function verifyNewsItems(items: NewsItem[]): Promise<NewsItem[]> {
+  const settled = await Promise.allSettled(items.map(async (item) => {
+    const verifiedPage = await verifySourcePage(item.link, item.source, item.title)
+    if (!verifiedPage) return null
+
+    const publishedTime = item.publishedTime || verifiedPage.publishedTime
+    if (!publishedTime || Number.isNaN(Date.parse(publishedTime))) return null
+
+    return {
+      ...item,
+      title: sanitizeVerifiedText(item.title, verifiedPage.text),
+      snippet: sanitizeVerifiedText(item.snippet, verifiedPage.text),
+      publishedTime,
+    }
+  }))
+
+  return settled
+    .flatMap((result) => result.status === 'fulfilled' && result.value ? [result.value] : [])
+}
+
+async function verifySearchResults(results: SearchResult[]): Promise<SearchResult[]> {
+  const settled = await Promise.allSettled(results.map(async (result) => {
+    const verifiedPage = await verifySourcePage(result.url, result.source, result.title)
+    if (!verifiedPage) return null
+
+    const publishedTime = result.publishedTime || verifiedPage.publishedTime
+    if (!publishedTime || Number.isNaN(Date.parse(publishedTime))) return null
+
+    return {
+      ...result,
+      title: sanitizeVerifiedText(result.title, verifiedPage.text),
+      source: verifiedPage.domain,
+      publishedTime,
+      content: sanitizeVerifiedText(result.content, verifiedPage.text),
+    }
+  }))
+
+  return settled
+    .flatMap((result) => result.status === 'fulfilled' && result.value ? [result.value] : [])
+    .slice(0, 5)
+}
+
+async function verifySourcePage(url: string, expectedSource: string, expectedTitle: string): Promise<VerifiedPage | null> {
+  if (!url || !/^https?:\/\//i.test(url)) return null
+
+  const domain = getDomainName(url)
+  if (!domainMatchesSource(domain, expectedSource)) {
+    console.log(`Invalid search result: source mismatch (${expectedSource} vs ${domain})`)
+    return null
+  }
+
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; HelenWebsite/1.0)',
+      },
+      signal: AbortSignal.timeout(10000),
+    })
+
+    if (!response.ok) {
+      console.log(`Invalid search result: URL not accessible (${url})`)
+      return null
+    }
+
+    const html = await response.text()
+    const text = cleanText(html)
+    const pageTitle = extractPageTitle(html)
+    const publishedTime = extractPublishedTime(html)
+
+    if (!publishedTime) {
+      console.log(`Invalid search result: missing published time (${url})`)
+      return null
+    }
+
+    if (!titleMatchesSource(expectedTitle, pageTitle, text)) {
+      console.log(`Invalid search result: title mismatch (${expectedTitle})`)
+      return null
+    }
+
+    return {
+      title: pageTitle || expectedTitle,
+      publishedTime,
+      text,
+      domain,
+    }
+  } catch (error) {
+    console.error(`Invalid search result: verification failed (${url})`, error)
+    return null
   }
 }
 
@@ -550,6 +667,119 @@ function decodeXml(value: string) {
 
 function normalizeNewsKey(title: string) {
   return title.toLowerCase().replace(/[^\u4e00-\u9fa5a-z0-9]+/g, '')
+}
+
+function getDomainName(url: string) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '').toLowerCase()
+  } catch {
+    return ''
+  }
+}
+
+function domainMatchesSource(domain: string, source: string) {
+  if (!domain) return false
+
+  const expectedDomains = SOURCE_DOMAINS[source]
+  if (expectedDomains) {
+    return expectedDomains.some((expectedDomain) => domain === expectedDomain || domain.endsWith(`.${expectedDomain}`))
+  }
+
+  const normalizedSource = source.replace(/^www\./, '').toLowerCase()
+  return domain === normalizedSource || domain.endsWith(`.${normalizedSource}`)
+}
+
+function extractPageTitle(html: string) {
+  const ogTitle = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["'][^>]*>/i)?.[1]
+  const title = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]
+  const h1 = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i)?.[1]
+
+  return cleanText(ogTitle || h1 || title || '')
+}
+
+function extractPublishedTime(html: string) {
+  const patterns = [
+    /<meta[^>]+property=["']article:published_time["'][^>]+content=["']([^"']+)["'][^>]*>/i,
+    /<meta[^>]+name=["']pubdate["'][^>]+content=["']([^"']+)["'][^>]*>/i,
+    /<meta[^>]+name=["']publishdate["'][^>]+content=["']([^"']+)["'][^>]*>/i,
+    /<meta[^>]+name=["']date["'][^>]+content=["']([^"']+)["'][^>]*>/i,
+    /"datePublished"\s*:\s*"([^"]+)"/i,
+    /"pubDate"\s*:\s*"([^"]+)"/i,
+    /<time[^>]+datetime=["']([^"']+)["'][^>]*>/i,
+  ]
+
+  for (const pattern of patterns) {
+    const value = cleanText(pattern.exec(html)?.[1] || '')
+    if (value && !Number.isNaN(Date.parse(value))) return value
+  }
+
+  const cnDate = cleanText(html.match(/(\d{4}[年/-]\d{1,2}[月/-]\d{1,2}日?(?:\s+\d{1,2}:\d{2})?)/)?.[1] || '')
+  if (cnDate) {
+    const normalized = cnDate
+      .replace('年', '-')
+      .replace('月', '-')
+      .replace('日', '')
+      .replace(/\//g, '-')
+
+    if (!Number.isNaN(Date.parse(normalized))) return normalized
+  }
+
+  return ''
+}
+
+function titleMatchesSource(expectedTitle: string, pageTitle: string, pageText: string) {
+  const expectedKey = normalizeNewsKey(expectedTitle)
+  const pageTitleKey = normalizeNewsKey(pageTitle)
+  const pageTextKey = normalizeNewsKey(pageText)
+
+  if (!expectedKey || expectedKey.length < 6) return false
+  if (pageTitleKey.includes(expectedKey) || expectedKey.includes(pageTitleKey)) return true
+  if (pageTextKey.includes(expectedKey)) return true
+
+  const tokens = extractTitleTokens(expectedTitle)
+  if (tokens.length === 0) return false
+
+  const matched = tokens.filter((token) => pageTitle.includes(token) || pageText.includes(token))
+  return matched.length / tokens.length >= 0.6
+}
+
+function extractTitleTokens(title: string) {
+  const chineseTokens = title.match(/[\u4e00-\u9fa5]{2,}/g) || []
+  const englishTokens = title.match(/[A-Za-z][A-Za-z0-9.-]{2,}/g) || []
+
+  return [...chineseTokens, ...englishTokens]
+    .flatMap((token) => token.length > 8 && /[\u4e00-\u9fa5]/.test(token) ? token.match(/.{2,6}/g) || [] : [token])
+    .filter((token) => token.length >= 2)
+    .slice(0, 12)
+}
+
+function sanitizeVerifiedText(value: string, sourceText: string) {
+  return sanitizeProductNamesAgainstPage(
+    sanitizeNumbersAgainstPage(value, sourceText),
+    sourceText
+  )
+}
+
+function sanitizeNumbersAgainstPage(value: string, sourceText: string) {
+  return value.replace(/\d+(?:\.\d+)?\s*(?:%|％|倍|万亿|亿|万|美元|人民币|元|个|条|款|B|M|T)?/gi, (numberText) => {
+    return sourceText.includes(numberText.trim()) ? numberText : ''
+  }).replace(/\s+/g, ' ').trim()
+}
+
+function sanitizeProductNamesAgainstPage(value: string, sourceText: string) {
+  return extractProductNames(value).reduce((current, productName) => {
+    if (sourceText.includes(productName)) return current
+    return current.split(productName).join('')
+  }, value).replace(/\s+/g, ' ').trim()
+}
+
+function extractProductNames(value: string) {
+  const names = value.match(/\b[A-Z][A-Za-z0-9.-]*(?:\s+[A-Z0-9][A-Za-z0-9.-]*){0,3}\b/g) || []
+
+  return Array.from(new Set(names))
+    .filter((name) => !/^(AI|API|AGI|GPU|CEO|CTO|CFO|USD|GPT)$/.test(name))
+    .filter((name) => /[A-Z]/.test(name) && /[a-z0-9]/.test(name))
+    .sort((a, b) => b.length - a.length)
 }
 
 function formatNewsTime(value: string) {
