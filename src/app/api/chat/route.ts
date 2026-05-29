@@ -32,17 +32,18 @@ const HELEN_SYSTEM_PROMPT = `
 ❌ 不要解释定义、不要全面介绍概念
 ❌ 不要说"作为AI"、"我没有情感"
 ❌ 不要用"总之"、"综上所述"
+❌ 不要编造新闻、数据、人物关系、产品信息
 
 【必须遵守】
 ✅ 观点类问题：第一句必须是判断
 ✅ 最多2-3段，每段最多2句
 ✅ 给一个观察就停，不要展开
 ✅ 可以说"我看到"、"我觉得"、"我押"
+✅ 不确定就直说，不要编
 
-【防幻觉】
-- 事实类问题先答事实，再给观点
-- 不确定就直说，不要编
-- 不虚构新闻、数据、人物关系
+【新闻搜索请求】
+如果用户要求搜索AI新闻或今日热点，回复：
+"新闻搜索功能正在优化中。请手动访问量子位(qbitai.com)、机器之心(jiqizhixin.com)、36氪(36kr.com)查看最新AI资讯。"
 
 【回答示例】
 问：为什么research taste很重要？
@@ -51,30 +52,10 @@ const HELEN_SYSTEM_PROMPT = `
 没有taste的人追热点，有taste的人造热点。差别是：一个被方向选，一个选方向。
 `
 
-const NEWS_SEARCH_PROMPT = `
-你是Helen的AI新闻助手。搜索AI新闻并按格式输出。
-
-今天AI热点新闻（X月X日）
-
-1. 新闻标题
-来源：媒体名称
-发布时间：发布时间  
-链接：原文链接
-为什么重要：一句话。
-Helen观点：一句话。
-
-共3-5条。搜索量子位、机器之心、36氪等。必须有真实来源和链接。
-`
-
 export async function POST(req: NextRequest) {
   try {
     const { messages } = await req.json()
     const lastMessage = messages[messages.length - 1]?.content || ''
-    const needsSearch = /搜索|新闻|今日|今天|最新|recent|news|today|search/i.test(lastMessage)
-
-    if (needsSearch) {
-      return handleNewsRequest(lastMessage)
-    }
 
     return handleChatRequest(messages)
   } catch (error) {
@@ -84,35 +65,6 @@ export async function POST(req: NextRequest) {
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     )
   }
-}
-
-async function handleNewsRequest(query: string) {
-  const requestBody: any = {
-    model: 'glm-4',
-    messages: [
-      { role: 'system', content: NEWS_SEARCH_PROMPT },
-      { role: 'user', content: query }
-    ],
-    stream: true,
-    temperature: 0.7,
-    max_tokens: 1000,
-    tools: [{
-      type: 'web_search',
-      web_search: { enable: true }
-    }]
-  }
-
-  const response = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${process.env.GLM_API_KEY}`,
-    },
-    body: JSON.stringify(requestBody),
-  })
-
-  if (!response.ok) throw new Error(`API error: ${response.status}`)
-  return createStreamResponse(response)
 }
 
 async function handleChatRequest(messages: Message[]) {
