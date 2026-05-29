@@ -148,6 +148,7 @@ async function fetchNewsFeed(feed: NewsFeed): Promise<NewsItem[]> {
       headers: {
         'User-Agent': 'Mozilla/5.0 (compatible; HelenWebsite/1.0)',
       },
+      signal: AbortSignal.timeout(7000),
       next: { revalidate: 900 },
     })
 
