@@ -94,6 +94,8 @@ const SOURCE_DOMAINS: Record<string, string[]> = {
 const HIGH_VALUE_AI_PATTERNS = /大模型|模型|Agent|智能体|多模态|视频生成|机器人|AI Infra|Infra|算力|芯片|GPU|数据中心|开源|国产模型|DeepSeek|通义|千问|Qwen|文心|豆包|混元|智谱|Kimi|月之暗面|MiniMax|MiniCPM|华为|昇腾|阿里|百度|腾讯|字节|OpenAI|Anthropic|Gemini|Claude|Llama|Coding|代码|政策|监管|备案|应用落地|产业落地/i
 const STRONG_AI_TITLE_PATTERNS = /大模型|模型发布|开源模型|国产模型|Agent|智能体|多模态|视频生成|机器人|具身|AI Infra|算力|芯片|GPU|数据中心|DeepSeek|通义|千问|Qwen|文心|豆包|混元|智谱|Kimi|月之暗面|MiniMax|MiniCPM|OpenAI|Anthropic|Gemini|Claude|Llama|Coding|代码|政策|监管|备案|审计|安全/i
 const LOW_VALUE_PATTERNS = /股价|股票|概念股|涨停|融资小新闻|估值|持仓|基金|获奖|荣膺|大会|会议|论坛|峰会|博览会|集中亮相|白皮书|营销|发布会预告|活动预告|直播预告|报名|招聘|财报|证券|研报|转载|标题党|加密货币|token|ETH|WLD|数百万|天使轮|A轮|Pre-A|首发|上市|起售价|售价|手机|汽车|比亚迪|OPPO|Reno|摄影|消费电子|家电|导购|种草|科氪|产品矩阵|工作站|体验馆|门店|开业|首店|线下店|疯狂的|8点1氪|早报|晚报|日报|周报/i
+const CLICKBAIT_NEWS_PATTERNS = /赶紧|吧[，,。!！?？]?|炸了|爆了|杀疯了|一夜之间|全网|刷屏|封神|遥遥领先|谁最|最可用|吊打|碾压|崩了|急了|慌了/i
+const MATERIAL_FINANCING_PATTERNS = /官方|宣布|完成|获得|领投|战略投资|并购|收购|供应链|存储|芯片|GPU|算力|数据中心|AI Infra|基础设施|训练|推理|OpenAI|Anthropic|DeepSeek|NVIDIA/i
 
 const HELEN_SYSTEM_PROMPT = `
 你是Helen的AI交互界面。Helen是AI TIME负责人，长期在AI生态现场观察和连接。
@@ -438,10 +440,12 @@ function rankingAgent(items: VerifiedNews[]): RankedNews[] {
 }
 
 function helenAgent(items: RankedNews[]): HelenNews[] {
-  return items.map((item) => ({
+  const usedTakes = new Set<string>()
+
+  return items.map((item, index) => ({
     ...item,
     importance: generateImportance(item),
-    helenTake: generateHelenTake(item),
+    helenTake: generateHelenTake(item, index, usedTakes),
   }))
 }
 
@@ -471,7 +475,9 @@ function isPotentialAINews(item: RawNews) {
   if (!HIGH_VALUE_AI_PATTERNS.test(text)) return false
   if (!STRONG_AI_TITLE_PATTERNS.test(item.title)) return false
   if (LOW_VALUE_PATTERNS.test(text)) return false
-  if (/融资|估值|持仓|基金|收购|并购/i.test(text) && !/(OpenAI|Anthropic|DeepSeek|智谱|月之暗面|MiniMax|算力|芯片|数据中心|AI Infra|大模型|模型发布|开源模型)/i.test(text)) return false
+  if (CLICKBAIT_NEWS_PATTERNS.test(item.title) && !/官方|发布|开源|政策|监管|审计|安全|芯片|算力|数据中心|供应链|AI Infra/i.test(item.title)) return false
+  if (/融资|估值|持仓|基金|收购|并购|入股|投资/i.test(text) && !MATERIAL_FINANCING_PATTERNS.test(text)) return false
+  if (/融资/i.test(item.title) && /赶紧|传闻|据称|或将|可能|吧/i.test(item.title)) return false
   return true
 }
 
@@ -512,19 +518,30 @@ function generateImportance(item: VerifiedNews) {
   return '它可能影响 AI 应用落地、生态合作或产业格局。'
 }
 
-function generateHelenTake(item: VerifiedNews) {
+function generateHelenTake(item: VerifiedNews, index = 0, usedTakes = new Set<string>()) {
   const title = item.title
   const text = `${item.title} ${item.snippet}`
+  const candidates: string[] = []
 
-  if (/供应链|存储|芯片|GPU|算力|AI Infra|数据中心|入股|投资Anthropic/i.test(text)) return '我会把它看成产业关系的变化：AI 公司不只是买算力，也在重新组织上游资源。'
-  if (/实测|测评|对比|可用|Vs|VS|benchmark|评测/i.test(title)) return '这类内容最有价值的地方，是把模型从发布会拉回真实使用；谁更好用，要看任务，不看口号。'
-  if (/Agent|智能体/i.test(title)) return '我会看它是不是真的进入工作流程，而不是停在“发布了一个助手”的层面。'
-  if (/Coding|代码/i.test(title)) return '我越来越觉得，AI 编程会先改变小团队速度，再改变大组织里的研发分工。'
-  if (/大模型|模型发布|国产模型|开源模型|MiniCPM|Anthropic|Claude|Opus|OpenAI|GPT|Gemini/i.test(title)) return '我更关心它这次具体改善了什么任务，而不是只看发布时的热度。'
-  if (/算力|芯片|GPU|AI Infra|数据中心|昇腾/i.test(text)) return '国内 AI 竞争最后会落到基础设施韧性上，稳定供给比一时热闹更重要。'
-  if (/政策|监管|备案|审计|安全/i.test(text)) return 'AI 已经从技术竞赛进入治理阶段，企业不能只讲能力，也要讲责任边界。'
+  if (/供应链|存储|芯片|GPU|算力|AI Infra|数据中心|入股|投资Anthropic/i.test(text)) {
+    candidates.push('我会把它看成产业关系的变化：AI 公司不只是买算力，也在重新组织上游资源。')
+    candidates.push('这类变化不热闹，但很关键：模型公司的竞争，正在往上游供应和议价能力延伸。')
+  }
+  if (/实测|测评|对比|可用|Vs|VS|benchmark|评测/i.test(title)) {
+    candidates.push('这类内容最有价值的地方，是把模型从发布会拉回真实使用；谁更好用，要看任务，不看口号。')
+    candidates.push('我会更看重它暴露出的使用差异：模型竞争最后会落到具体场景里的稳定性和成本。')
+  }
+  if (/Agent|智能体/i.test(title)) candidates.push('我会看它是不是真的进入工作流程，而不是停在“发布了一个助手”的层面。')
+  if (/Coding|代码/i.test(title)) candidates.push('我越来越觉得，AI 编程会先改变小团队速度，再改变大组织里的研发分工。')
+  if (/大模型|模型发布|国产模型|开源模型|MiniCPM|Anthropic|Claude|Opus|OpenAI|GPT|Gemini/i.test(title)) candidates.push('我更关心它这次具体改善了什么任务，而不是只看发布时的热度。')
+  if (/算力|芯片|GPU|AI Infra|数据中心|昇腾/i.test(text)) candidates.push('国内 AI 竞争最后会落到基础设施韧性上，稳定供给比一时热闹更重要。')
+  if (/政策|监管|备案|审计|安全/i.test(text)) candidates.push('AI 已经从技术竞赛进入治理阶段，企业不能只讲能力，也要讲责任边界。')
 
-  return '这类新闻要放进生态里看：它改变的不是单个产品，而是人、工具和组织之间的关系。'
+  candidates.push('这类新闻要放进生态里看：它改变的不是单个产品，而是人、工具和组织之间的关系。')
+
+  const selected = candidates.find((take) => !usedTakes.has(take)) || candidates[index % candidates.length]
+  usedTakes.add(selected)
+  return selected
 }
 
 async function handleChatRequest(messages: Message[], extraSystemPrompt?: string, maxTokens = 250) {
