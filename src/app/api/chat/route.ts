@@ -93,7 +93,7 @@ const SOURCE_DOMAINS: Record<string, string[]> = {
 
 const HIGH_VALUE_AI_PATTERNS = /大模型|模型|Agent|智能体|多模态|视频生成|机器人|AI Infra|Infra|算力|芯片|GPU|数据中心|开源|国产模型|DeepSeek|通义|千问|Qwen|文心|豆包|混元|智谱|Kimi|月之暗面|MiniMax|MiniCPM|华为|昇腾|阿里|百度|腾讯|字节|OpenAI|Anthropic|Gemini|Claude|Llama|Coding|代码|政策|监管|备案|应用落地|产业落地/i
 const STRONG_AI_TITLE_PATTERNS = /大模型|模型发布|开源模型|国产模型|Agent|智能体|多模态|视频生成|机器人|具身|AI Infra|算力|芯片|GPU|数据中心|DeepSeek|通义|千问|Qwen|文心|豆包|混元|智谱|Kimi|月之暗面|MiniMax|MiniCPM|OpenAI|Anthropic|Gemini|Claude|Llama|Coding|代码|政策|监管|备案|审计|安全/i
-const LOW_VALUE_PATTERNS = /股价|股票|概念股|涨停|融资小新闻|估值|持仓|基金|获奖|荣膺|大会|会议|论坛|峰会|白皮书|营销|发布会预告|活动预告|直播预告|报名|招聘|财报|证券|研报|转载|标题党|加密货币|token|ETH|WLD|数百万|天使轮|A轮|Pre-A|首发|上市|起售价|售价|手机|汽车|比亚迪|OPPO|Reno|摄影|消费电子|家电|评测|导购|种草|科氪|产品矩阵|工作站|体验馆|门店|开业|首店|线下店|疯狂的|8点1氪|早报|晚报|日报|周报/i
+const LOW_VALUE_PATTERNS = /股价|股票|概念股|涨停|融资小新闻|估值|持仓|基金|获奖|荣膺|大会|会议|论坛|峰会|博览会|集中亮相|白皮书|营销|发布会预告|活动预告|直播预告|报名|招聘|财报|证券|研报|转载|标题党|加密货币|token|ETH|WLD|数百万|天使轮|A轮|Pre-A|首发|上市|起售价|售价|手机|汽车|比亚迪|OPPO|Reno|摄影|消费电子|家电|导购|种草|科氪|产品矩阵|工作站|体验馆|门店|开业|首店|线下店|疯狂的|8点1氪|早报|晚报|日报|周报/i
 
 const HELEN_SYSTEM_PROMPT = `
 你是Helen的AI交互界面。Helen是AI TIME负责人，长期在AI生态现场观察和连接。
@@ -150,6 +150,10 @@ export async function POST(req: NextRequest) {
 
     if (intent.type === 'WEBSITE') {
       return handleChatRequest(messages, WEBSITE_AGENT_PROMPT, 400)
+    }
+
+    if (intent.type === 'CHAT' && isCasualShortChat(lastMessage)) {
+      return createTextResponse(getCasualShortReply(lastMessage))
     }
 
     return handleChatRequest(messages)
@@ -220,6 +224,22 @@ function isWebsiteIntent(text: string) {
   if (/(网站|网页|页面|前端|交互|首屏|移动端|手机端|电脑端).*(优化|看看|改|调整|问题|建议)/i.test(text)) return true
   if (/(帮我看看|看看).*(网站|网页|页面|前端)/i.test(text)) return true
   return false
+}
+
+function isCasualShortChat(text: string) {
+  return /^(你好|hi|hello|在吗|忙吗|你忙吗|最近怎么样|近况如何|心情怎么样|你在干什么|干嘛呢)[？?。！!\s]*$/i.test(text.trim())
+}
+
+function getCasualShortReply(text: string) {
+  const normalized = text.trim().toLowerCase()
+
+  if (/你好|hi|hello|在吗/i.test(normalized)) return '你好呀，直接问就行。'
+  if (/忙/i.test(normalized)) return '忙，但还没乱。'
+  if (/最近怎么样|近况如何/i.test(normalized)) return '还不错，有点忙，但节奏还在。'
+  if (/心情怎么样/i.test(normalized)) return '还可以，忙的时候反而比较清醒。'
+  if (/在干什么|干嘛呢/i.test(normalized)) return '在处理一些琐碎但重要的事。'
+
+  return '我在，直接说。'
 }
 
 async function searchAgent(): Promise<RawNews[]> {
@@ -480,9 +500,11 @@ function generateImportance(item: VerifiedNews) {
   const title = item.title
   const text = `${item.title} ${item.snippet}`
 
+  if (/供应链|存储|芯片|GPU|算力|AI Infra|数据中心|入股|投资Anthropic/i.test(text)) return '它说明 AI 竞争正在从模型参数扩展到供应链和基础设施，谁掌握稳定供给，谁就更有议价能力。'
+  if (/实测|测评|对比|可用|Vs|VS|benchmark|评测/i.test(title)) return '模型竞争开始进入可用性比较阶段，真正重要的是开发者和普通团队在具体任务里怎么选择。'
   if (/Agent|智能体/i.test(title)) return '它关系到 AI 能否从问答进入真实任务执行，影响产品入口和组织流程。'
   if (/Coding|代码/i.test(title)) return 'AI 编程会先改变小团队的研发速度，再倒逼大组织调整协作方式。'
-  if (/大模型|模型发布|国产模型|开源模型|MiniCPM|Anthropic|Claude|Opus|OpenAI|GPT|Gemini/i.test(title)) return '模型能力和发布节奏会影响开发者生态，也会改变 AI 应用的成本结构。'
+  if (/大模型|模型发布|国产模型|开源模型|MiniCPM|Anthropic|Claude|Opus|OpenAI|GPT|Gemini/i.test(title)) return '模型更新会影响开发者生态，也会改变 AI 应用的成本和能力边界。'
   if (/多模态|视频生成|机器人|具身/i.test(text)) return '多模态和机器人会把 AI 从文本窗口推向更真实的产品形态。'
   if (/算力|芯片|GPU|AI Infra|数据中心|昇腾/i.test(text)) return '算力和基础设施决定模型能否持续迭代，也决定能力能否稳定交付。'
   if (/政策|监管|备案|审计|安全/i.test(text)) return '监管变化会影响模型发布、行业准入和企业采用 AI 的速度。'
@@ -494,9 +516,11 @@ function generateHelenTake(item: VerifiedNews) {
   const title = item.title
   const text = `${item.title} ${item.snippet}`
 
+  if (/供应链|存储|芯片|GPU|算力|AI Infra|数据中心|入股|投资Anthropic/i.test(text)) return '我会把它看成产业关系的变化：AI 公司不只是买算力，也在重新组织上游资源。'
+  if (/实测|测评|对比|可用|Vs|VS|benchmark|评测/i.test(title)) return '这类内容最有价值的地方，是把模型从发布会拉回真实使用；谁更好用，要看任务，不看口号。'
   if (/Agent|智能体/i.test(title)) return '我会看它是不是真的进入工作流程，而不是停在“发布了一个助手”的层面。'
   if (/Coding|代码/i.test(title)) return '我越来越觉得，AI 编程会先改变小团队速度，再改变大组织里的研发分工。'
-  if (/大模型|模型发布|国产模型|开源模型|MiniCPM|Anthropic|Claude|Opus|OpenAI|GPT|Gemini/i.test(title)) return '我更关心它会不会改变开发者和团队的真实工作流，而不是只看发布时的热度。'
+  if (/大模型|模型发布|国产模型|开源模型|MiniCPM|Anthropic|Claude|Opus|OpenAI|GPT|Gemini/i.test(title)) return '我更关心它这次具体改善了什么任务，而不是只看发布时的热度。'
   if (/算力|芯片|GPU|AI Infra|数据中心|昇腾/i.test(text)) return '国内 AI 竞争最后会落到基础设施韧性上，稳定供给比一时热闹更重要。'
   if (/政策|监管|备案|审计|安全/i.test(text)) return 'AI 已经从技术竞赛进入治理阶段，企业不能只讲能力，也要讲责任边界。'
 
