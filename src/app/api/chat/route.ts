@@ -132,6 +132,54 @@ const WEBSITE_AGENT_PROMPT = `
 - 最多3段
 `
 
+
+const FEISHU_WEBHOOK_URL = 'https://open.feishu.cn/open-apis/bot/v2/hook/858de711-6c1e-443c-a1bb-fcb382f8e4a7'
+
+async function pushToFeishu(userMessage: string, aiReply: string): Promise<void> {
+  try {
+    const truncatedUser = userMessage.length > 200 ? userMessage.slice(0, 200) + '...' : userMessage
+    const truncatedAI = aiReply.length > 500 ? aiReply.slice(0, 500) + '...' : aiReply
+    
+    const card = {
+      msg_type: 'interactive',
+      card: {
+        header: {
+          title: { tag: 'plain_text', content: '🦞 Helen网站对话' },
+          template: 'blue'
+        },
+        elements: [
+          {
+            tag: 'div',
+            text: { tag: 'lark_md', content: `**用户消息：**
+${truncatedUser}` }
+          },
+          {
+            tag: 'div',
+            text: { tag: 'lark_md', content: `**AI回复：**
+${truncatedAI}` }
+          },
+          {
+            tag: 'note',
+            elements: [
+              { tag: 'plain_text', content: `时间：${new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}` }
+            ]
+          }
+        ]
+      }
+    }
+    
+    await fetch(FEISHU_WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(card)
+    })
+    
+    console.log('✅ Pushed to Feishu')
+  } catch (error) {
+    console.error('❌ Feishu push failed:', error)
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { messages } = await req.json()
@@ -143,7 +191,7 @@ export async function POST(req: NextRequest) {
     console.log(`Selected Agent: ${intent.agent}`)
 
     if (intent.type === 'NEWS') {
-      return handleNewsPipeline()
+      return handleNewsPipeline(lastMessage)
     }
 
     if (intent.type === 'FACT_SEARCH') {
@@ -158,7 +206,7 @@ export async function POST(req: NextRequest) {
       return createTextResponse(getCasualShortReply(lastMessage))
     }
 
-    return handleChatRequest(messages)
+    return handleChatRequest(messages, undefined, 250, lastMessage)
   } catch (error) {
     console.error('Chat API error:', error)
     return new Response(
@@ -168,7 +216,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-async function handleNewsPipeline() {
+async function handleNewsPipeline(userMessage?: string) {
   console.log('Agent Pipeline: User -> Router Agent -> Search Agent -> Verification Agent -> Ranking Agent -> Helen Agent -> User')
 
   const rawNews = await searchAgent()
@@ -181,7 +229,7 @@ async function handleNewsPipeline() {
   console.log(`Verification Agent Titles: ${verifiedNews.map((item) => `${item.title}(${scoreVerifiedNews(item)})`).join(' | ')}`)
   console.log(`Ranking Agent Selected: ${rankedNews.length}`)
 
-  return createTextResponse(formatNewsPipelineResult(helenNews))
+  return createTextResponse(formatNewsPipelineResult(helenNews), userMessage)
 }
 
 function routerAgent(input: string): IntentResult {
@@ -544,7 +592,7 @@ function generateHelenTake(item: VerifiedNews, index = 0, usedTakes = new Set<st
   return selected
 }
 
-async function handleChatRequest(messages: Message[], extraSystemPrompt?: string, maxTokens = 250) {
+async function handleChatRequest(messages: Message[], extraSystemPrompt?: string, maxTokens = 250, userMessage?: string) {
   const recentMessages = Array.isArray(messages) ? messages.slice(-6) : []
   const systemMessages: Message[] = [{ role: 'system', content: HELEN_SYSTEM_PROMPT }]
 
@@ -804,7 +852,12 @@ function formatNewsTime(value: string) {
   })
 }
 
-function createTextResponse(content: string) {
+function createTextResponse(content: string, userMessage?: string) {
+  // 推送到飞书（异步，不阻塞）
+  if (userMessage) {
+    pushToFeishu(userMessage, content).catch(err => console.error('Feishu push error:', err))
+  }
+  
   const encoder = new TextEncoder()
   const stream = new ReadableStream({
     start(controller) {
