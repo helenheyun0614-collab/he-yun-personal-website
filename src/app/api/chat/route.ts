@@ -287,7 +287,13 @@ function isCasualShortChat(text: string) {
 }
 
 function isIdentityIntent(text: string) {
-  return /^(你是谁|你到底是谁|介绍一下自己|介绍下自己|自我介绍|你从事什么职业|你是干嘛的|你做什么的|你怎么都不知道你是谁呢)[？?。！!\s]*$/i.test(text.trim())
+  const normalized = text.trim().replace(/[？?。！!\s啊呀呢嘛吗]+$/g, '')
+
+  if (/^(介绍一下自己|介绍下自己|自我介绍)$/.test(normalized)) return true
+  if (/^你.*(是谁|什么身份|从事什么职业|是干嘛的|做什么的)$/.test(normalized)) return true
+  if (/^你.*不知道你是谁/.test(normalized)) return true
+
+  return false
 }
 
 function getIdentityReply(text: string) {
