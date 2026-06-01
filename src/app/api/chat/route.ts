@@ -451,11 +451,11 @@ function helenAgent(items: RankedNews[]): HelenNews[] {
 
 function formatNewsPipelineResult(items: HelenNews[]) {
   if (items.length === 0) {
-    return '我刚刚跑了一遍新闻 Agent Pipeline，但没有拿到足够可靠的结果。宁可空着，也不把未经验证的标题、数字或产品名塞给你。'
+    return '今天没有找到可靠的AI热点新闻。建议访问量子位、机器之心、36氪查看最新资讯。'
   }
 
   const expanded = items.some((item) => !isTodayNews(item))
-  const header = `我刚刚跑完 Search → Verification → Ranking → Helen Pipeline，只保留已验证的 ${items.length} 条${expanded ? '。今天足够硬的新闻不多，所以放宽到了过去 48 小时' : ''}：`
+  const header = `今天AI热点（${new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' })}）${expanded ? '（过去48小时）' : ''}`
 
   const body = items.map((item, index) => {
     return `${index + 1}. 标题：${item.title}
