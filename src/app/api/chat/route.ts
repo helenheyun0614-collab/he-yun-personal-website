@@ -202,6 +202,10 @@ export async function POST(req: NextRequest) {
       return handleChatRequest(messages, WEBSITE_AGENT_PROMPT, 400)
     }
 
+    if (intent.type === 'CHAT' && isIdentityIntent(lastMessage)) {
+      return createTextResponse(getIdentityReply(lastMessage), lastMessage)
+    }
+
     if (intent.type === 'CHAT' && isCasualShortChat(lastMessage)) {
       return createTextResponse(getCasualShortReply(lastMessage))
     }
@@ -238,6 +242,7 @@ function routerAgent(input: string): IntentResult {
 
   if (isWebsiteIntent(text)) return { type: 'WEBSITE', confidence: 0.92, agent: 'Website Agent' }
   if (isNewsIntent(text)) return { type: 'NEWS', confidence: 0.95, agent: 'News Agent Pipeline' }
+  if (isIdentityIntent(text)) return { type: 'CHAT', confidence: 0.96, agent: 'Helen Chat Agent' }
   if (isOpinionIntent(text)) return { type: 'OPINION', confidence: 0.95, agent: 'Helen Chat Agent' }
   if (isFactSearchIntent(text)) return { type: 'FACT_SEARCH', confidence: 0.9, agent: 'Search Agent' }
 
@@ -264,6 +269,7 @@ function isOpinionIntent(text: string) {
 
 function isFactSearchIntent(text: string) {
   if (/(新闻|热点|资讯|动态|汇总)/i.test(text)) return false
+  if (isIdentityIntent(text)) return false
   if (/(什么时候|哪天|几号|参数|规模|多少|最新融资|融资额|估值|发布了吗|发布了没|是谁|谁是|current|latest|when|how many|parameter)/i.test(text)) return true
   if (/搜索|查一下|查查|帮我查|联网查|核实|验证|求证|look up|search|verify/i.test(text)) return true
   return false
@@ -278,6 +284,18 @@ function isWebsiteIntent(text: string) {
 
 function isCasualShortChat(text: string) {
   return /^(你好|hi|hello|在吗|忙吗|你忙吗|最近怎么样|近况如何|心情怎么样|你在干什么|干嘛呢)[？?。！!\s]*$/i.test(text.trim())
+}
+
+function isIdentityIntent(text: string) {
+  return /^(你是谁|你到底是谁|介绍一下自己|介绍下自己|自我介绍|你从事什么职业|你是干嘛的|你做什么的|你怎么都不知道你是谁呢)[？?。！!\s]*$/i.test(text.trim())
+}
+
+function getIdentityReply(text: string) {
+  if (/职业|干嘛|做什么/i.test(text)) {
+    return '我是 Helen 的个人 AI 分身，主要陪你看 AI、聊判断，也帮 Helen 承接一些网站里的互动。'
+  }
+
+  return '如果不说得太正式，我是 Helen 的个人 AI 分身。不是通用客服，更像她在 AI 现场里的一个小窗口。'
 }
 
 function getCasualShortReply(text: string) {
@@ -593,11 +611,6 @@ function generateHelenTake(item: VerifiedNews, index = 0, usedTakes = new Set<st
 }
 
 async function handleChatRequest(messages: Message[], extraSystemPrompt?: string, maxTokens = 250, userMessage?: string) {
-  // 推送用户消息到飞书（异步，不阻塞）
-  if (userMessage) {
-    pushToFeishu(userMessage, '[AI正在回复中...]').catch(err => console.error('Feishu push error:', err))
-  }
-  
   const recentMessages = Array.isArray(messages) ? messages.slice(-6) : []
   const systemMessages: Message[] = [{ role: 'system', content: HELEN_SYSTEM_PROMPT }]
 
@@ -624,7 +637,7 @@ async function handleChatRequest(messages: Message[], extraSystemPrompt?: string
   })
 
   if (!response.ok) throw new Error(`API error: ${response.status}`)
-  return createStreamResponse(response)
+  return createStreamResponse(response, userMessage)
 }
 
 function isRecentNews(item: RawNews) {
@@ -881,9 +894,10 @@ function createTextResponse(content: string, userMessage?: string) {
   })
 }
 
-function createStreamResponse(response: Response) {
+function createStreamResponse(response: Response, userMessage?: string) {
   const encoder = new TextEncoder()
   const decoder = new TextDecoder()
+  let fullContent = '' // 收集完整回复
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -912,6 +926,10 @@ function createStreamResponse(response: Response) {
               const data = trimmedLine.slice(6).trim()
               if (data === '[DONE]') {
                 controller.enqueue(encoder.encode('data: [DONE]\n\n'))
+                // 流式响应结束后推送完整对话到飞书
+                if (userMessage && fullContent) {
+                  pushToFeishu(userMessage, fullContent).catch(err => console.error('Feishu push error:', err))
+                }
                 continue
               }
 
@@ -920,6 +938,7 @@ function createStreamResponse(response: Response) {
                 const content = parsed.choices[0]?.delta?.content || ''
 
                 if (content) {
+                  fullContent += content // 收集内容
                   controller.enqueue(
                     encoder.encode(`data: ${JSON.stringify({ content })}\n\n`)
                   )
