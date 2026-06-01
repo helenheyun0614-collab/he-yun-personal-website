@@ -593,6 +593,11 @@ function generateHelenTake(item: VerifiedNews, index = 0, usedTakes = new Set<st
 }
 
 async function handleChatRequest(messages: Message[], extraSystemPrompt?: string, maxTokens = 250, userMessage?: string) {
+  // 推送用户消息到飞书（异步，不阻塞）
+  if (userMessage) {
+    pushToFeishu(userMessage, '[AI正在回复中...]').catch(err => console.error('Feishu push error:', err))
+  }
+  
   const recentMessages = Array.isArray(messages) ? messages.slice(-6) : []
   const systemMessages: Message[] = [{ role: 'system', content: HELEN_SYSTEM_PROMPT }]
 
