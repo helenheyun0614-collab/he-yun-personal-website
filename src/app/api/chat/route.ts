@@ -51,6 +51,7 @@ interface HelenNews extends RankedNews {
 }
 
 type IntentType = 'CHAT' | 'OPINION' | 'NEWS' | 'FACT_SEARCH' | 'WEBSITE'
+type ResponseLanguage = 'zh' | 'en'
 
 interface IntentResult {
   type: IntentType
@@ -93,7 +94,7 @@ const SOURCE_DOMAINS: Record<string, string[]> = {
 
 const HIGH_VALUE_AI_PATTERNS = /大模型|模型|Agent|智能体|多模态|视频生成|机器人|AI Infra|Infra|算力|芯片|GPU|数据中心|开源|国产模型|DeepSeek|通义|千问|Qwen|文心|豆包|混元|智谱|Kimi|月之暗面|MiniMax|MiniCPM|华为|昇腾|阿里|百度|腾讯|字节|OpenAI|Anthropic|Gemini|Claude|Llama|Coding|代码|政策|监管|备案|应用落地|产业落地/i
 const STRONG_AI_TITLE_PATTERNS = /大模型|模型发布|开源模型|国产模型|Agent|智能体|多模态|视频生成|机器人|具身|AI Infra|算力|芯片|GPU|数据中心|DeepSeek|通义|千问|Qwen|文心|豆包|混元|智谱|Kimi|月之暗面|MiniMax|MiniCPM|OpenAI|Anthropic|Gemini|Claude|Llama|Coding|代码|政策|监管|备案|审计|安全/i
-const LOW_VALUE_PATTERNS = /股价|股票|概念股|涨停|融资小新闻|估值|持仓|基金|获奖|荣膺|大会|会议|论坛|峰会|博览会|集中亮相|白皮书|营销|发布会预告|活动预告|直播预告|报名|招聘|财报|证券|研报|转载|标题党|加密货币|token|ETH|WLD|数百万|天使轮|A轮|Pre-A|首发|上市|起售价|售价|手机|汽车|比亚迪|OPPO|Reno|摄影|消费电子|家电|导购|种草|科氪|产品矩阵|工作站|体验馆|门店|开业|首店|线下店|疯狂的|8点1氪|早报|晚报|日报|周报/i
+const LOW_VALUE_PATTERNS = /股价|股票|概念股|涨停|融资小新闻|估值|持仓|基金|获奖|荣膺|大会|会议|论坛|峰会|博览会|集中亮相|白皮书|营销|发布会预告|活动预告|直播预告|报名|招聘|财报|证券|研报|转载|标题党|加密货币|token|ETH|WLD|数百万|天使轮|A轮|Pre-A|首发|上市|起售价|售价|手机|汽车|比亚迪|OPPO|Reno|摄影|消费电子|家电|导购|种草|科氪|产品矩阵|工作站|体验馆|门店|开业|首店|线下店|疯狂的|8点1氪|早报|晚报|日报|周报|跨境电商|直播电商|小微企业|梯度激励/i
 const CLICKBAIT_NEWS_PATTERNS = /赶紧|吧[，,。!！?？]?|炸了|爆了|杀疯了|一夜之间|全网|刷屏|封神|遥遥领先|谁最|最可用|吊打|碾压|崩了|急了|慌了/i
 const MATERIAL_FINANCING_PATTERNS = /官方|宣布|完成|获得|领投|战略投资|并购|收购|供应链|存储|芯片|GPU|算力|数据中心|AI Infra|基础设施|训练|推理|OpenAI|Anthropic|DeepSeek|NVIDIA/i
 
@@ -222,18 +223,19 @@ export async function POST(req: NextRequest) {
 
 async function handleNewsPipeline(userMessage?: string) {
   console.log('Agent Pipeline: User -> Router Agent -> Search Agent -> Verification Agent -> Ranking Agent -> Helen Agent -> User')
+  const language = detectResponseLanguage(userMessage || '')
 
   const rawNews = await searchAgent()
   const verifiedNews = await verificationAgent(rawNews)
   const rankedNews = rankingAgent(verifiedNews)
-  const helenNews = helenAgent(rankedNews)
+  const helenNews = helenAgent(rankedNews, language)
 
   console.log(`Search Agent Candidates: ${rawNews.length}`)
   console.log(`Verification Agent Valid: ${verifiedNews.length}`)
   console.log(`Verification Agent Titles: ${verifiedNews.map((item) => `${item.title}(${scoreVerifiedNews(item)})`).join(' | ')}`)
   console.log(`Ranking Agent Selected: ${rankedNews.length}`)
 
-  return createTextResponse(formatNewsPipelineResult(helenNews), userMessage)
+  return createTextResponse(formatNewsPipelineResult(helenNews, language), userMessage)
 }
 
 function routerAgent(input: string): IntentResult {
@@ -511,28 +513,42 @@ function rankingAgent(items: VerifiedNews[]): RankedNews[] {
     .slice(0, 5)
 }
 
-function helenAgent(items: RankedNews[]): HelenNews[] {
+function helenAgent(items: RankedNews[], language: ResponseLanguage): HelenNews[] {
   const usedTakes = new Set<string>()
 
   return items.map((item, index) => ({
     ...item,
-    importance: generateImportance(item),
-    helenTake: generateHelenTake(item, index, usedTakes),
+    importance: generateImportance(item, language),
+    helenTake: generateHelenTake(item, language, index, usedTakes),
   }))
 }
 
-function formatNewsPipelineResult(items: HelenNews[]) {
+function formatNewsPipelineResult(items: HelenNews[], language: ResponseLanguage) {
   if (items.length === 0) {
-    return '今天没有找到可靠的AI热点新闻。建议访问量子位、机器之心、36氪查看最新资讯。'
+    return language === 'en'
+      ? 'I did not find enough reliable AI news today. I would rather return nothing than pad the list with weak or unverifiable items.'
+      : '今天没有找到可靠的AI热点新闻。建议访问量子位、机器之心、36氪查看最新资讯。'
   }
 
   const expanded = items.some((item) => !isTodayNews(item))
-  const header = `今天AI热点（${new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' })}）${expanded ? '（过去48小时）' : ''}`
+  const header = language === 'en'
+    ? `Today's AI News (${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', timeZone: 'Asia/Shanghai' })})${expanded ? ' (past 48 hours)' : ''}`
+    : `今天AI热点（${new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', timeZone: 'Asia/Shanghai' })}）${expanded ? '（过去48小时）' : ''}`
 
   const body = items.map((item, index) => {
+    if (language === 'en') {
+      return `${index + 1}. Title: ${item.title}
+Source: ${item.source}
+Published: ${formatNewsTime(item.publishedTime, language)}
+Link: ${item.link}
+Why it matters: ${item.importance}
+Helen's take: ${item.helenTake}
+Quality: ${translateNewsQuality(item.quality)}`
+    }
+
     return `${index + 1}. 标题：${item.title}
 来源：${item.source}
-发布时间：${formatNewsTime(item.publishedTime)}
+发布时间：${formatNewsTime(item.publishedTime, language)}
 链接：${item.link}
 为什么重要：${item.importance}
 Helen看法：${item.helenTake}
@@ -540,6 +556,13 @@ Helen看法：${item.helenTake}
   }).join('\n\n')
 
   return `${header}\n\n${body}`
+}
+
+function detectResponseLanguage(text: string): ResponseLanguage {
+  const englishMatches = text.match(/[A-Za-z]/g)?.length || 0
+  const chineseMatches = text.match(/[\u4e00-\u9fa5]/g)?.length || 0
+
+  return englishMatches > chineseMatches ? 'en' : 'zh'
 }
 
 function isPotentialAINews(item: RawNews) {
@@ -574,46 +597,66 @@ function getNewsQuality(score: number): RankedNews['quality'] {
   return '可看'
 }
 
-function generateImportance(item: VerifiedNews) {
+function generateImportance(item: VerifiedNews, language: ResponseLanguage) {
   const title = item.title
   const text = `${item.title} ${item.snippet}`
 
-  if (/供应链|存储|芯片|GPU|算力|AI Infra|数据中心|入股|投资Anthropic/i.test(text)) return '它说明 AI 竞争正在从模型参数扩展到供应链和基础设施，谁掌握稳定供给，谁就更有议价能力。'
-  if (/实测|测评|对比|可用|Vs|VS|benchmark|评测/i.test(title)) return '模型竞争开始进入可用性比较阶段，真正重要的是开发者和普通团队在具体任务里怎么选择。'
-  if (/Agent|智能体/i.test(title)) return '它关系到 AI 能否从问答进入真实任务执行，影响产品入口和组织流程。'
-  if (/Coding|代码/i.test(title)) return 'AI 编程会先改变小团队的研发速度，再倒逼大组织调整协作方式。'
-  if (/大模型|模型发布|国产模型|开源模型|MiniCPM|Anthropic|Claude|Opus|OpenAI|GPT|Gemini/i.test(title)) return '模型更新会影响开发者生态，也会改变 AI 应用的成本和能力边界。'
-  if (/多模态|视频生成|机器人|具身/i.test(text)) return '多模态和机器人会把 AI 从文本窗口推向更真实的产品形态。'
-  if (/算力|芯片|GPU|AI Infra|数据中心|昇腾/i.test(text)) return '算力和基础设施决定模型能否持续迭代，也决定能力能否稳定交付。'
-  if (/政策|监管|备案|审计|安全/i.test(text)) return '监管变化会影响模型发布、行业准入和企业采用 AI 的速度。'
+  if (/供应链|存储|芯片|GPU|算力|AI Infra|数据中心|入股|投资Anthropic/i.test(text)) {
+    return language === 'en'
+      ? 'It shows AI competition moving beyond model parameters into supply chains and infrastructure.'
+      : '它说明 AI 竞争正在从模型参数扩展到供应链和基础设施，谁掌握稳定供给，谁就更有议价能力。'
+  }
+  if (/实测|测评|对比|可用|Vs|VS|benchmark|评测/i.test(title)) {
+    return language === 'en'
+      ? 'Model competition is shifting from launch claims to practical usability in real tasks.'
+      : '模型竞争开始进入可用性比较阶段，真正重要的是开发者和普通团队在具体任务里怎么选择。'
+  }
+  if (/Agent|智能体/i.test(title)) return language === 'en' ? 'It matters because agents are the bridge from chat to real task execution.' : '它关系到 AI 能否从问答进入真实任务执行，影响产品入口和组织流程。'
+  if (/Coding|代码/i.test(title)) return language === 'en' ? 'AI coding will change small-team velocity first, then reshape engineering workflows inside larger organizations.' : 'AI 编程会先改变小团队的研发速度，再倒逼大组织调整协作方式。'
+  if (/大模型|模型发布|国产模型|开源模型|MiniCPM|Anthropic|Claude|Opus|OpenAI|GPT|Gemini/i.test(title)) return language === 'en' ? 'Model updates affect the developer ecosystem and reset the cost and capability boundaries of AI applications.' : '模型更新会影响开发者生态，也会改变 AI 应用的成本和能力边界。'
+  if (/多模态|视频生成|机器人|具身/i.test(text)) return language === 'en' ? 'Multimodal AI and robotics push AI beyond text boxes into more concrete product forms.' : '多模态和机器人会把 AI 从文本窗口推向更真实的产品形态。'
+  if (/算力|芯片|GPU|AI Infra|数据中心|昇腾/i.test(text)) return language === 'en' ? 'Compute and infrastructure decide whether model capabilities can keep improving and be delivered reliably.' : '算力和基础设施决定模型能否持续迭代，也决定能力能否稳定交付。'
+  if (/政策|监管|备案|审计|安全/i.test(text)) return language === 'en' ? 'Regulation affects model releases, enterprise adoption, and the boundaries of acceptable AI deployment.' : '监管变化会影响模型发布、行业准入和企业采用 AI 的速度。'
 
-  return '它可能影响 AI 应用落地、生态合作或产业格局。'
+  return language === 'en'
+    ? 'It may affect AI adoption, ecosystem collaboration, or the broader industry structure.'
+    : '它可能影响 AI 应用落地、生态合作或产业格局。'
 }
 
-function generateHelenTake(item: VerifiedNews, index = 0, usedTakes = new Set<string>()) {
+function generateHelenTake(item: VerifiedNews, language: ResponseLanguage, index = 0, usedTakes = new Set<string>()) {
   const title = item.title
   const text = `${item.title} ${item.snippet}`
   const candidates: string[] = []
 
   if (/供应链|存储|芯片|GPU|算力|AI Infra|数据中心|入股|投资Anthropic/i.test(text)) {
-    candidates.push('我会把它看成产业关系的变化：AI 公司不只是买算力，也在重新组织上游资源。')
-    candidates.push('这类变化不热闹，但很关键：模型公司的竞争，正在往上游供应和议价能力延伸。')
+    candidates.push(language === 'en' ? 'I would read this as an industry-structure shift: AI companies are not just buying compute, they are reorganizing upstream resources.' : '我会把它看成产业关系的变化：AI 公司不只是买算力，也在重新组织上游资源。')
+    candidates.push(language === 'en' ? 'This kind of change is not flashy, but it matters: model competition is extending into supply and bargaining power.' : '这类变化不热闹，但很关键：模型公司的竞争，正在往上游供应和议价能力延伸。')
   }
   if (/实测|测评|对比|可用|Vs|VS|benchmark|评测/i.test(title)) {
-    candidates.push('这类内容最有价值的地方，是把模型从发布会拉回真实使用；谁更好用，要看任务，不看口号。')
-    candidates.push('我会更看重它暴露出的使用差异：模型竞争最后会落到具体场景里的稳定性和成本。')
+    candidates.push(language === 'en' ? 'The useful part is that it pulls models back from launch-stage claims into actual use; the winner depends on the task, not the slogan.' : '这类内容最有价值的地方，是把模型从发布会拉回真实使用；谁更好用，要看任务，不看口号。')
+    candidates.push(language === 'en' ? 'I care more about the usage gap it reveals: model competition eventually lands on stability and cost in real scenarios.' : '我会更看重它暴露出的使用差异：模型竞争最后会落到具体场景里的稳定性和成本。')
   }
-  if (/Agent|智能体/i.test(title)) candidates.push('我会看它是不是真的进入工作流程，而不是停在“发布了一个助手”的层面。')
-  if (/Coding|代码/i.test(title)) candidates.push('我越来越觉得，AI 编程会先改变小团队速度，再改变大组织里的研发分工。')
-  if (/大模型|模型发布|国产模型|开源模型|MiniCPM|Anthropic|Claude|Opus|OpenAI|GPT|Gemini/i.test(title)) candidates.push('我更关心它这次具体改善了什么任务，而不是只看发布时的热度。')
-  if (/算力|芯片|GPU|AI Infra|数据中心|昇腾/i.test(text)) candidates.push('国内 AI 竞争最后会落到基础设施韧性上，稳定供给比一时热闹更重要。')
-  if (/政策|监管|备案|审计|安全/i.test(text)) candidates.push('AI 已经从技术竞赛进入治理阶段，企业不能只讲能力，也要讲责任边界。')
+  if (/多模态|视频生成|机器人|具身|ICRA/i.test(text)) {
+    candidates.push(language === 'en' ? 'I would watch whether this moves from a lab result into reliable deployment; robotics is unforgiving about vague claims.' : '我会看它能不能从实验室结果走向稳定部署，机器人这件事最怕只讲演示效果。')
+    candidates.push(language === 'en' ? 'Robotics progress matters because it tests whether AI can handle messy physical environments, not just clean digital prompts.' : '机器人进展值得看，因为它考验的是 AI 能不能处理真实世界的混乱，而不只是干净的文本输入。')
+  }
+  if (/Agent|智能体/i.test(title)) candidates.push(language === 'en' ? 'I would watch whether it actually enters workflows, not just whether someone launched another assistant.' : '我会看它是不是真的进入工作流程，而不是停在“发布了一个助手”的层面。')
+  if (/Coding|代码/i.test(title)) candidates.push(language === 'en' ? 'AI coding will change small-team speed first, then force larger organizations to rethink engineering roles.' : '我越来越觉得，AI 编程会先改变小团队速度，再改变大组织里的研发分工。')
+  if (/大模型|模型发布|国产模型|开源模型|MiniCPM|Anthropic|Claude|Opus|OpenAI|GPT|Gemini/i.test(title)) candidates.push(language === 'en' ? 'I care less about release-day heat and more about which concrete tasks got better.' : '我更关心它这次具体改善了什么任务，而不是只看发布时的热度。')
+  if (/算力|芯片|GPU|AI Infra|数据中心|昇腾/i.test(text)) candidates.push(language === 'en' ? 'The AI race will ultimately depend on infrastructure resilience; stable supply matters more than temporary noise.' : '国内 AI 竞争最后会落到基础设施韧性上，稳定供给比一时热闹更重要。')
+  if (/政策|监管|备案|审计|安全/i.test(text)) candidates.push(language === 'en' ? 'AI has moved from a pure capability race into governance; companies need boundaries, not just demos.' : 'AI 已经从技术竞赛进入治理阶段，企业不能只讲能力，也要讲责任边界。')
 
-  candidates.push('这类新闻要放进生态里看：它改变的不是单个产品，而是人、工具和组织之间的关系。')
+  candidates.push(language === 'en' ? 'I would place this in the wider ecosystem: the real change is often in how people, tools, and organizations relate to each other.' : '这类新闻要放进生态里看：它改变的不是单个产品，而是人、工具和组织之间的关系。')
 
   const selected = candidates.find((take) => !usedTakes.has(take)) || candidates[index % candidates.length]
   usedTakes.add(selected)
   return selected
+}
+
+function translateNewsQuality(quality: RankedNews['quality']) {
+  if (quality === '必看') return 'Must-read'
+  if (quality === '值得关注') return 'Worth watching'
+  return 'Watchlist'
 }
 
 async function handleChatRequest(messages: Message[], extraSystemPrompt?: string, maxTokens = 250, userMessage?: string) {
@@ -862,11 +905,11 @@ function extractProductNames(value: string) {
     .sort((a, b) => b.length - a.length)
 }
 
-function formatNewsTime(value: string) {
+function formatNewsTime(value: string, language: ResponseLanguage = 'zh') {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
 
-  return date.toLocaleString('zh-CN', {
+  return date.toLocaleString(language === 'en' ? 'en-US' : 'zh-CN', {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
