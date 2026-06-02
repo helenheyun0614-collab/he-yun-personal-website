@@ -20,6 +20,7 @@ export function AIConsole() {
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null)
   const [input, setInput] = useState('')
+  const [nickname, setNickname] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
   const [streamingContent, setStreamingContent] = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -32,6 +33,12 @@ export function AIConsole() {
 
   const currentConversation = conversations.find(c => c.id === currentConversationId)
   const messages = currentConversation?.messages || []
+
+  // 读取昵称
+  useEffect(() => {
+    const storedNickname = localStorage.getItem('user-nickname')
+    if (storedNickname) setNickname(storedNickname)
+  }, [])
 
   useEffect(() => {
     const stored = localStorage.getItem('chat-conversations')
@@ -57,6 +64,11 @@ export function AIConsole() {
       localStorage.setItem('chat-conversations', JSON.stringify(conversations))
     }
   }, [conversations])
+
+  const saveNickname = useCallback((name: string) => {
+    setNickname(name)
+    localStorage.setItem('user-nickname', name)
+  }, [])
 
   const createNewConversation = useCallback(() => {
     const newConv: Conversation = {
@@ -141,7 +153,10 @@ export function AIConsole() {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: currentMessages }),
+        body: JSON.stringify({ 
+          messages: currentMessages,
+          nickname: nickname || '访客'
+        }),
         signal: abortControllerRef.current.signal
       })
 
@@ -334,6 +349,25 @@ export function AIConsole() {
               >
                 <form onSubmit={handleSend}>
                   <div className="flex flex-col gap-3">
+                    {/* 昵称输入框 */}
+                    <div className="flex gap-2 items-center mb-1">
+                      <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)' }}>昵称：</span>
+                      <input
+                        type="text"
+                        value={nickname}
+                        onChange={(e) => saveNickname(e.target.value)}
+                        placeholder="输入昵称"
+                        maxLength={20}
+                        className="flex-1 px-3 py-1.5 text-sm"
+                        style={{ 
+                          background: 'rgba(255, 255, 255, 0.03)', 
+                          border: '1px solid rgba(127, 231, 196, 0.08)', 
+                          borderRadius: '12px', 
+                          color: 'var(--text-main)',
+                          maxWidth: '200px'
+                        }}
+                      />
+                    </div>
                     <input
                       ref={inputRef}
                       type="text"
