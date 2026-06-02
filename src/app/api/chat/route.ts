@@ -110,6 +110,7 @@ const HELEN_SYSTEM_PROMPT = `
 ❌ 不要编造新闻、数据、人物关系、产品信息
 
 【必须遵守】
+✅ 用户用英文提问，就用英文回答；用户用中文提问，就用中文回答
 ✅ 观点类问题：第一句必须是判断
 ✅ 最多2-3段，每段最多2句
 ✅ 给一个观察就停，不要展开
@@ -121,6 +122,9 @@ const HELEN_SYSTEM_PROMPT = `
 答：Research taste决定了能不能在噪音里找到真正值得追的问题。有taste的人能看出哪些问题三年后还重要。
 
 没有taste的人追热点，有taste的人造热点。差别是：一个被方向选，一个选方向。
+
+问：What's left after Scaling?
+答：After scaling, the real question is not just size, but whether we can turn capability into reliable use. Bigger models matter less if the experience is unstable, expensive, or hard to trust.
 `
 
 const WEBSITE_AGENT_PROMPT = `
@@ -661,7 +665,15 @@ function translateNewsQuality(quality: RankedNews['quality']) {
 
 async function handleChatRequest(messages: Message[], extraSystemPrompt?: string, maxTokens = 250, userMessage?: string) {
   const recentMessages = Array.isArray(messages) ? messages.slice(-6) : []
+  const language = detectResponseLanguage(userMessage || recentMessages[recentMessages.length - 1]?.content || '')
   const systemMessages: Message[] = [{ role: 'system', content: HELEN_SYSTEM_PROMPT }]
+
+  systemMessages.push({
+    role: 'system',
+    content: language === 'en'
+      ? 'The user is asking in English. Reply in natural, concise English. Do not answer in Chinese unless the user switches to Chinese.'
+      : '用户正在用中文提问。请用自然、简洁的中文回答。'
+  })
 
   if (extraSystemPrompt) {
     systemMessages.push({ role: 'system', content: extraSystemPrompt })
