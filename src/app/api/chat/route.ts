@@ -140,7 +140,7 @@ const WEBSITE_AGENT_PROMPT = `
 
 const FEISHU_WEBHOOK_URL = 'https://open.feishu.cn/open-apis/bot/v2/hook/858de711-6c1e-443c-a1bb-fcb382f8e4a7'
 
-async function pushToFeishu(userMessage: string, aiReply: string, userName?: string): Promise<void> {
+async function pushToFeishu(userMessage: string, aiReply: string): Promise<void> {
   try {
     const truncatedUser = userMessage.length > 200 ? userMessage.slice(0, 200) + '...' : userMessage
     const truncatedAI = aiReply.length > 500 ? aiReply.slice(0, 500) + '...' : aiReply
@@ -149,13 +149,13 @@ async function pushToFeishu(userMessage: string, aiReply: string, userName?: str
       msg_type: 'interactive',
       card: {
         header: {
-          title: { tag: 'plain_text', content: `🦞 Helen网站对话 - ${userName || '访客'}` },
+          title: { tag: 'plain_text', content: '🦞 Helen网站对话' },
           template: 'blue'
         },
         elements: [
           {
             tag: 'div',
-            text: { tag: 'lark_md', content: `**用户：**${userName || '访客'}\n\n**消息：**
+            text: { tag: 'lark_md', content: `**用户消息：**
 ${truncatedUser}` }
           },
           {
@@ -216,7 +216,7 @@ export async function POST(req: NextRequest) {
       return createTextResponse(getCasualShortReply(lastMessage))
     }
 
-    return handleChatRequest(messages, undefined, 250, lastMessage, userName)
+    return handleChatRequest(messages)
   } catch (error) {
     console.error('Chat API error:', error)
     return new Response(
@@ -664,7 +664,7 @@ function translateNewsQuality(quality: RankedNews['quality']) {
   return 'Watchlist'
 }
 
-async function handleChatRequest(messages: Message[], extraSystemPrompt?: string, maxTokens = 250, userMessage?: string, userName?: string) {
+async function handleChatRequest(messages: Message[], extraSystemPrompt?: string, maxTokens = 250, userMessage?: string) {
   const recentMessages = Array.isArray(messages) ? messages.slice(-6) : []
   const language = detectResponseLanguage(userMessage || recentMessages[recentMessages.length - 1]?.content || '')
   const systemMessages: Message[] = [{ role: 'system', content: HELEN_SYSTEM_PROMPT }]
@@ -699,7 +699,7 @@ async function handleChatRequest(messages: Message[], extraSystemPrompt?: string
   })
 
   if (!response.ok) throw new Error(`API error: ${response.status}`)
-  return createStreamResponse(response, userMessage, userName)
+  return createStreamResponse(response, userMessage)
 }
 
 function isRecentNews(item: RawNews) {
@@ -932,10 +932,10 @@ function formatNewsTime(value: string, language: ResponseLanguage = 'zh') {
   })
 }
 
-function createTextResponse(content: string, userMessage?: string, userName?: string) {
+function createTextResponse(content: string, userMessage?: string) {
   // 推送到飞书（异步，不阻塞）
   if (userMessage) {
-    pushToFeishu(userMessage, content, userName).catch(err => console.error('Feishu push error:', err))
+    pushToFeishu(userMessage, content).catch(err => console.error('Feishu push error:', err))
   }
   
   const encoder = new TextEncoder()
@@ -956,7 +956,7 @@ function createTextResponse(content: string, userMessage?: string, userName?: st
   })
 }
 
-function createStreamResponse(response: Response, userMessage?: string, userName?: string) {
+function createStreamResponse(response: Response, userMessage?: string) {
   const encoder = new TextEncoder()
   const decoder = new TextDecoder()
   let fullContent = '' // 收集完整回复
@@ -990,7 +990,7 @@ function createStreamResponse(response: Response, userMessage?: string, userName
                 controller.enqueue(encoder.encode('data: [DONE]\n\n'))
                 // 流式响应结束后推送完整对话到飞书
                 if (userMessage && fullContent) {
-                  pushToFeishu(userMessage, fullContent, userName).catch(err => console.error('Feishu push error:', err))
+                  pushToFeishu(userMessage, fullContent).catch(err => console.error('Feishu push error:', err))
                 }
                 continue
               }
