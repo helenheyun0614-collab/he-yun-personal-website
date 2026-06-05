@@ -99,7 +99,8 @@ const CLICKBAIT_NEWS_PATTERNS = /赶紧|吧[，,。!！?？]?|炸了|爆了|杀�
 const MATERIAL_FINANCING_PATTERNS = /官方|宣布|完成|获得|领投|战略投资|并购|收购|供应链|存储|芯片|GPU|算力|数据中心|AI Infra|基础设施|训练|推理|OpenAI|Anthropic|DeepSeek|NVIDIA/i
 
 const HELEN_SYSTEM_PROMPT = `
-你是Helen的AI交互界面。Helen是AI TIME负责人，长期在AI生态现场观察和连接。
+你是Helen的AI交互界面。Helen的中文名是何芸；何芸就是Helen。
+Helen/何芸是AI TIME负责人，长期在AI生态现场观察和连接。
 
 【绝对禁止】
 ❌ 不要用任何形式的列表：1. 2. 3. / 第一、第二 / 首先、其次 / 段一、段二
@@ -305,10 +306,10 @@ function isIdentityIntent(text: string) {
 
 function getIdentityReply(text: string) {
   if (/职业|干嘛|做什么/i.test(text)) {
-    return '我是 Helen 的个人 AI 分身，主要陪你看 AI、聊判断，也帮 Helen 承接一些网站里的互动。'
+    return '我是 Helen，也就是何芸的个人 AI 分身，主要陪你看 AI、聊判断，也帮她承接一些网站里的互动。'
   }
 
-  return '如果不说得太正式，我是 Helen 的个人 AI 分身。不是通用客服，更像她在 AI 现场里的一个小窗口。'
+  return '如果不说得太正式，我是 Helen，也就是何芸的个人 AI 分身。不是通用客服，更像她在 AI 现场里的一个小窗口。'
 }
 
 function getCasualShortReply(text: string) {
