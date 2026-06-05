@@ -298,6 +298,8 @@ function isIdentityIntent(text: string) {
   const normalized = text.trim().replace(/[？?。！!\s啊呀呢嘛吗]+$/g, '')
 
   if (/^(介绍一下自己|介绍下自己|自我介绍)$/.test(normalized)) return true
+  if (/^(何芸|Helen|helen)(是谁|是什么人|是干嘛的|做什么的|什么身份)$/.test(normalized)) return true
+  if (/^(你)?认识(何芸|Helen|helen)$/.test(normalized)) return true
   if (/^你.*(是谁|什么身份|从事什么职业|是干嘛的|做什么的)$/.test(normalized)) return true
   if (/^你.*不知道你是谁/.test(normalized)) return true
 
@@ -305,11 +307,27 @@ function isIdentityIntent(text: string) {
 }
 
 function getIdentityReply(text: string) {
+  const normalized = text.trim()
+  const variants = [
+    '如果不说得太正式，我是 Helen，也就是何芸的个人 AI 分身。更像她在 AI 现场里的一个小窗口。',
+    '我是 Helen/何芸的个人 AI 分身。她在做 AI TIME，也长期在研究、学生、产业和社区之间来回连接。',
+    '你可以把我理解成 Helen 的网站分身：不负责装成万能助手，主要负责和你聊 AI、判断、生态和她正在关心的事。'
+  ]
+
+  if (/何芸|Helen|helen/.test(normalized) && !/^你.*是谁/.test(normalized)) {
+    return '何芸就是 Helen，AI TIME 的负责人。她不是技术研究员，但长期在 AI 研究、社区、人才和产业现场做连接。'
+  }
+
+  if (/介绍|自我介绍/.test(normalized)) {
+    return '我是 Helen/何芸的个人 AI 分身。你可以把我理解成她放在网站里的一个小窗口，用来聊 AI、研究生态、年轻人成长和一些还在路上的判断。'
+  }
+
   if (/职业|干嘛|做什么/i.test(text)) {
     return '我是 Helen，也就是何芸的个人 AI 分身，主要陪你看 AI、聊判断，也帮她承接一些网站里的互动。'
   }
 
-  return '如果不说得太正式，我是 Helen，也就是何芸的个人 AI 分身。不是通用客服，更像她在 AI 现场里的一个小窗口。'
+  const index = Math.abs(normalized.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0)) % variants.length
+  return variants[index]
 }
 
 function getCasualShortReply(text: string) {
