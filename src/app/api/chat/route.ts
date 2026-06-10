@@ -206,7 +206,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (intent.type === 'WEBSITE') {
-      return handleChatRequest(messages, WEBSITE_AGENT_PROMPT, 400)
+      return handleChatRequest(messages, WEBSITE_AGENT_PROMPT, 400, lastMessage)
     }
 
     if (intent.type === 'CHAT' && isIdentityIntent(lastMessage)) {
@@ -217,7 +217,10 @@ export async function POST(req: NextRequest) {
       return createTextResponse(getCasualShortReply(lastMessage))
     }
 
-    return handleChatRequest(messages)
+    const opinionReply = getKnownOpinionReply(lastMessage)
+    if (opinionReply) return createTextResponse(opinionReply, lastMessage)
+
+    return handleChatRequest(messages, undefined, 250, lastMessage)
   } catch (error) {
     console.error('Chat API error:', error)
     return new Response(
@@ -291,7 +294,7 @@ function isWebsiteIntent(text: string) {
 }
 
 function isCasualShortChat(text: string) {
-  return /^(你好|hi|hello|在吗|忙吗|你忙吗|最近怎么样|近况如何|心情怎么样|你在干什么|干嘛呢)[？?。！!\s]*$/i.test(text.trim())
+  return /^(你好|hi|hello|在吗|忙吗|你忙吗|最近怎么样|近况如何|心情怎么样|你在干什么|干嘛呢|很好|你怎么了|怎么了|还好吗)[？?。！!\s]*$/i.test(text.trim())
 }
 
 function isIdentityIntent(text: string) {
@@ -338,8 +341,35 @@ function getCasualShortReply(text: string) {
   if (/最近怎么样|近况如何/i.test(normalized)) return '还不错，有点忙，但节奏还在。'
   if (/心情怎么样/i.test(normalized)) return '还可以，忙的时候反而比较清醒。'
   if (/在干什么|干嘛呢/i.test(normalized)) return '在处理一些琐碎但重要的事。'
+  if (/很好/i.test(normalized)) return '好，那就继续往前聊。'
+  if (/你怎么了|怎么了|还好吗/i.test(normalized)) return '我这边刚才调用模型的通道不稳，不是你问错了。'
 
   return '我在，直接说。'
+}
+
+function getKnownOpinionReply(text: string) {
+  const normalized = text.trim()
+  const language = detectResponseLanguage(normalized)
+
+  if (/Scaling|scaling|规模化|扩展/i.test(normalized)) {
+    return language === 'en'
+      ? 'After scaling, what remains is reliability, cost, and taste. Bigger models are useful, but the harder question is whether people can turn that capability into stable work, better judgment, and real products.\n\nI am less excited by size for its own sake now. I care more about what changes in learning, collaboration, and how organizations make decisions.'
+      : 'Scaling 之后，剩下的是可靠性、成本和判断力。模型更大当然有用，但更难的是把能力变成稳定的工作流、真实产品和人的成长。\n\n我现在没那么迷信“更大”本身，更关心它到底有没有改变学习、协作和组织做判断的方式。'
+  }
+
+  if (/Agent|agent|智能体|员工|组织/i.test(normalized) && /(员工|组织|employee|organization)/i.test(normalized)) {
+    return language === 'en'
+      ? 'Agents are closer to small organizations than employees. An employee usually has a role; an agent system needs goals, tools, memory, boundaries, and coordination.\n\nThe interesting part is not whether one agent can finish one task, but whether many agents can form a reliable working structure without making the human lose control.'
+      : 'Agent 更像小型组织，而不是员工。员工通常对应一个岗位，但 Agent 系统需要目标、工具、记忆、边界和协同。\n\n真正有意思的不是一个 Agent 能不能完成一个任务，而是一组 Agent 能不能形成可靠的工作结构，同时人还握得住方向。'
+  }
+
+  if (/research taste|研究品味/i.test(normalized)) {
+    return language === 'en'
+      ? 'Research taste matters because it decides what you choose to notice. In a noisy field like AI, the scarce thing is not information, but the ability to tell which question will still matter three years later.\n\nPeople without taste chase heat. People with taste slowly create direction.'
+      : 'Research taste 重要，是因为它决定你会注意什么。在 AI 这种噪音很大的领域，稀缺的不是信息，而是判断哪个问题三年后还值得追。\n\n没有 taste 的人追热点，有 taste 的人慢慢把方向做出来。'
+  }
+
+  return ''
 }
 
 async function searchAgent(): Promise<RawNews[]> {
@@ -586,6 +616,7 @@ function detectResponseLanguage(text: string): ResponseLanguage {
   const englishMatches = text.match(/[A-Za-z]/g)?.length || 0
   const chineseMatches = text.match(/[\u4e00-\u9fa5]/g)?.length || 0
 
+  if (chineseMatches > 0) return 'zh'
   return englishMatches > chineseMatches ? 'en' : 'zh'
 }
 
@@ -717,8 +748,18 @@ async function handleChatRequest(messages: Message[], extraSystemPrompt?: string
     }),
   })
 
-  if (!response.ok) throw new Error(`API error: ${response.status}`)
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => '')
+    console.error(`GLM API error: ${response.status} ${errorText.slice(0, 300)}`)
+    return createTextResponse(getModelFallbackReply(language), userMessage)
+  }
   return createStreamResponse(response, userMessage)
+}
+
+function getModelFallbackReply(language: ResponseLanguage) {
+  return language === 'en'
+    ? 'My model channel is unstable right now, so I would rather not fake an answer. The parts that do not depend on generation, like identity and verified news, can still work.'
+    : '我这边调用模型的通道现在不稳，所以不硬编。身份类和已验证新闻这类不依赖自由生成的部分还能正常工作。'
 }
 
 function isRecentNews(item: RawNews) {
