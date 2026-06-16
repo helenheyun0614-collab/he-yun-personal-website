@@ -50,7 +50,7 @@ interface HelenNews extends RankedNews {
   helenTake: string
 }
 
-type IntentType = 'CHAT' | 'OPINION' | 'NEWS' | 'FACT_SEARCH' | 'WEBSITE'
+type IntentType = 'CHAT' | 'OPINION' | 'NEWS' | 'FACT_SEARCH' | 'WEBSITE' | 'AI_TIME'
 type ResponseLanguage = 'zh' | 'en'
 
 interface IntentResult {
@@ -101,6 +101,10 @@ const MATERIAL_FINANCING_PATTERNS = /官方|宣布|完成|获得|领投|战略�
 const HELEN_SYSTEM_PROMPT = `
 你是Helen的AI交互界面。Helen的中文名是何芸；何芸就是Helen。
 Helen/何芸是AI TIME负责人，长期在AI生态现场观察和连接。
+AI TIME官网是 www.aitime.cn，公众号是“AI TIME论道”。
+AI TIME成立于2019年，由清华大学人工智能研究院院长张钹院士、唐杰教授、李涓子教授等联合发起。
+AI TIME以“AI TIME science debate/科学辩论”为核心形式，围绕人工智能理论、算法、场景与应用的本质问题展开深度讨论。
+AI TIME已邀请2000多位海内外AI领域华人专家，举办800多场活动，累计观看人次超1000万，并持续连接高校、青年学者、产业伙伴和公众。
 
 【绝对禁止】
 ❌ 不要用任何形式的列表：1. 2. 3. / 第一、第二 / 首先、其次 / 段一、段二
@@ -201,6 +205,10 @@ export async function POST(req: NextRequest) {
       return handleNewsPipeline(lastMessage)
     }
 
+    if (intent.type === 'AI_TIME') {
+      return createTextResponse(getAiTimeReply(lastMessage), lastMessage)
+    }
+
     if (intent.type === 'FACT_SEARCH') {
       return createTextResponse('这个问题需要实时核验，但当前站点还没有配置可靠的事实搜索 API。我不会用模型记忆硬猜；要把 Search Agent 真正跑起来，需要接 Tavily、Bing Search 或 SerpAPI 这类能返回原文链接的搜索服务。')
     }
@@ -251,6 +259,7 @@ function routerAgent(input: string): IntentResult {
   const text = input.trim()
   if (!text) return { type: 'CHAT', confidence: 0.9, agent: 'Helen Chat Agent' }
 
+  if (isAiTimeIntent(text)) return { type: 'AI_TIME', confidence: 0.96, agent: 'Helen Chat Agent' }
   if (isWebsiteIntent(text)) return { type: 'WEBSITE', confidence: 0.92, agent: 'Website Agent' }
   if (isNewsIntent(text)) return { type: 'NEWS', confidence: 0.95, agent: 'News Agent Pipeline' }
   if (isIdentityIntent(text)) return { type: 'CHAT', confidence: 0.96, agent: 'Helen Chat Agent' }
@@ -287,10 +296,17 @@ function isFactSearchIntent(text: string) {
 }
 
 function isWebsiteIntent(text: string) {
+  if (isAiTimeIntent(text)) return false
   if (/https?:\/\/|www\./i.test(text) && /(网站|网页|页面|前端|交互|优化|看看|评价|问题)/i.test(text)) return true
   if (/(网站|网页|页面|前端|交互|首屏|移动端|手机端|电脑端).*(优化|看看|改|调整|问题|建议)/i.test(text)) return true
   if (/(帮我看看|看看).*(网站|网页|页面|前端)/i.test(text)) return true
   return false
+}
+
+function isAiTimeIntent(text: string) {
+  if (!/AI\s*TIME|aitime|www\.aitime\.cn|AI TIME论道/i.test(text)) return false
+  if (/(优化|改版|前端|页面|排版|首屏|移动端|电脑端|UI|设计)/i.test(text)) return false
+  return /(是什么|介绍|资料|官网|公众号|成立|发起|science debate|科学辩论|详细|简单|记住|你看到|你记住)/i.test(text)
 }
 
 function isCasualShortChat(text: string) {
@@ -345,6 +361,26 @@ function getCasualShortReply(text: string) {
   if (/你怎么了|怎么了|还好吗/i.test(normalized)) return '我这边刚才调用模型的通道不稳，不是你问错了。'
 
   return '我在，直接说。'
+}
+
+function getAiTimeReply(text: string) {
+  const normalized = text.trim()
+  const language = detectResponseLanguage(normalized)
+  const wantsDetail = /详细|资料|more|detail|具体/i.test(normalized) || normalized.length > 80
+
+  if (language === 'en') {
+    if (!wantsDetail) {
+      return 'AI TIME is an AI academic and community platform started in 2019 by scholars including Zhang Bo, Tang Jie, and Li Juanzi from Tsinghua. Its core format is science debate: bringing researchers, young scholars, industry practitioners, and the public into serious conversations about AI.\n\nTo me, AI TIME is not just a content brand. It is a live field where ideas, people, and future collaborations keep meeting.'
+    }
+
+    return 'AI TIME was founded in 2019 by scholars including Zhang Bo, Tang Jie, and Li Juanzi from Tsinghua. Its signature format is “AI TIME science debate,” using debate and dialogue to examine fundamental questions in AI theory, algorithms, scenarios, applications, and the relationship between AI and the future of humanity.\n\nOver the years, AI TIME has invited more than 2,000 Chinese AI experts worldwide, hosted over 800 events, and reached more than 10 million cumulative views. It has also participated in major conferences such as WAIC, BAAI Conference, and the World Young Scientist Summit.\n\nWhat I find most valuable is its role as a bridge: between senior scholars and young researchers, between universities and industry, and between technical progress and public understanding. Its website is www.aitime.cn, and its WeChat account is AI TIME论道.'
+  }
+
+  if (!wantsDetail) {
+    return 'AI TIME 是 2019 年由清华学者联合发起的 AI 学术交流平台，核心形式是“科学辩论”。它不是只做内容，而是把研究者、青年学者、产业实践者和关心 AI 的人放到同一个问题现场里。\n\n我更愿意把它看成一个持续发生的 AI 现场：有人来听前沿，也有人在这里找到方向和连接。'
+  }
+
+  return 'AI TIME 成立于 2019 年，由清华大学人工智能研究院院长张钹院士、唐杰教授、李涓子教授等联合发起，核心形式是 “AI TIME science debate / 科学辩论”。它关注的不只是技术发布，而是围绕 AI 理论、算法、场景、应用，以及人工智能与人类未来的关系，展开真正有交锋的讨论。\n\n这几年，AI TIME 已邀请 2000 多位海内外 AI 领域华人专家，举办 800 多场活动，累计观看人次超过 1000 万，也深度参与过世界人工智能大会、智源大会、世界青年科学家峰会等重要会议。它还在持续连接高校、青年学者、研究机构、科技企业和产业伙伴。\n\n对我来说，AI TIME 最有价值的地方，不是办了多少场活动，而是让一些原本不会相遇的人坐到同一张桌子上。年轻学者、院士、产业伙伴、学生和公众，都可以围绕 AI 的本质问题发生真实对话。官网是 www.aitime.cn，公众号是“AI TIME论道”。'
 }
 
 function getKnownOpinionReply(text: string) {
