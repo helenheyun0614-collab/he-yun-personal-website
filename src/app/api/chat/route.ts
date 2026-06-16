@@ -104,7 +104,9 @@ Helen/何芸是AI TIME负责人，长期在AI生态现场观察和连接。
 AI TIME官网是 www.aitime.cn，公众号是“AI TIME论道”。
 AI TIME成立于2019年，由清华大学人工智能研究院院长张钹院士、唐杰教授、李涓子教授等联合发起。
 AI TIME以“AI TIME science debate/科学辩论”为核心形式，围绕人工智能理论、算法、场景与应用的本质问题展开深度讨论。
-AI TIME已邀请2000多位海内外AI领域华人专家，举办800多场活动，累计观看人次超1000万，并持续连接高校、青年学者、产业伙伴和公众。
+AI TIME已邀请2000多位海内外AI领域华人专家，举办逾900场活动，累计观看人次超1000万，并持续连接高校、青年学者、产业伙伴和公众。
+AI TIME线上线下活动覆盖近200所国内外顶尖高校，国内实现C9联盟全覆盖及双一流高校90%以上渗透率，国外合作院校均位列泰晤士高等教育和QS世界大学排名百强，并与多个国际一流实验室建立合作关系。
+AI TIME讲者中华人青年学者与博士占比超80%，达1600多位，广泛任职于全球顶尖高校、研究机构及科技企业，包括微软、Meta、Open AI、谷歌等机构。
 
 【绝对禁止】
 ❌ 不要用任何形式的列表：1. 2. 3. / 第一、第二 / 首先、其次 / 段一、段二
@@ -373,14 +375,14 @@ function getAiTimeReply(text: string) {
       return 'AI TIME is an AI academic and community platform started in 2019 by scholars including Zhang Bo, Tang Jie, and Li Juanzi from Tsinghua. Its core format is science debate: bringing researchers, young scholars, industry practitioners, and the public into serious conversations about AI.\n\nTo me, AI TIME is not just a content brand. It is a live field where ideas, people, and future collaborations keep meeting.'
     }
 
-    return 'AI TIME was founded in 2019 by scholars including Zhang Bo, Tang Jie, and Li Juanzi from Tsinghua. Its signature format is “AI TIME science debate,” using debate and dialogue to examine fundamental questions in AI theory, algorithms, scenarios, applications, and the relationship between AI and the future of humanity.\n\nOver the years, AI TIME has invited more than 2,000 Chinese AI experts worldwide, hosted over 800 events, and reached more than 10 million cumulative views. It has also participated in major conferences such as WAIC, BAAI Conference, and the World Young Scientist Summit.\n\nWhat I find most valuable is its role as a bridge: between senior scholars and young researchers, between universities and industry, and between technical progress and public understanding. Its website is www.aitime.cn, and its WeChat account is AI TIME论道.'
+    return 'AI TIME was founded in 2019 by scholars including Zhang Bo, Tang Jie, and Li Juanzi from Tsinghua. Its signature format is “AI TIME science debate,” using debate and dialogue to examine fundamental questions in AI theory, algorithms, scenarios, applications, and the relationship between AI and the future of humanity.\n\nOver the past six years, AI TIME has invited more than 2,000 Chinese AI experts worldwide, hosted over 900 events, and reached more than 10 million cumulative views. Its online and offline activities cover nearly 200 leading universities in China and abroad, with full C9 coverage in China and deep links to top global universities and labs.\n\nWhat I find most valuable is its role as a bridge: between senior scholars and young researchers, between universities and industry, and between technical progress and public understanding. More than 80% of its speakers are young Chinese scholars and PhDs, over 1,600 people, many from top universities, research institutions, and companies such as Microsoft, Meta, Open AI, and Google. Its website is www.aitime.cn, and its WeChat account is AI TIME论道.'
   }
 
   if (!wantsDetail) {
     return 'AI TIME 是 2019 年由清华学者联合发起的 AI 学术交流平台，核心形式是“科学辩论”。它不是只做内容，而是把研究者、青年学者、产业实践者和关心 AI 的人放到同一个问题现场里。\n\n我更愿意把它看成一个持续发生的 AI 现场：有人来听前沿，也有人在这里找到方向和连接。'
   }
 
-  return 'AI TIME 成立于 2019 年，由清华大学人工智能研究院院长张钹院士、唐杰教授、李涓子教授等联合发起，核心形式是 “AI TIME science debate / 科学辩论”。它关注的不只是技术发布，而是围绕 AI 理论、算法、场景、应用，以及人工智能与人类未来的关系，展开真正有交锋的讨论。\n\n这几年，AI TIME 已邀请 2000 多位海内外 AI 领域华人专家，举办 800 多场活动，累计观看人次超过 1000 万，也深度参与过世界人工智能大会、智源大会、世界青年科学家峰会等重要会议。它还在持续连接高校、青年学者、研究机构、科技企业和产业伙伴。\n\n对我来说，AI TIME 最有价值的地方，不是办了多少场活动，而是让一些原本不会相遇的人坐到同一张桌子上。年轻学者、院士、产业伙伴、学生和公众，都可以围绕 AI 的本质问题发生真实对话。官网是 www.aitime.cn，公众号是“AI TIME论道”。'
+  return 'AI TIME 成立于 2019 年，由清华大学人工智能研究院院长张钹院士、唐杰教授、李涓子教授等联合发起，核心形式是 “AI TIME science debate / 科学辩论”。它关注的不只是技术发布，而是围绕 AI 理论、算法、场景、应用，以及人工智能与人类未来的关系，展开真正有交锋的讨论。\n\n六年来，AI TIME 已邀请 2000 多位海内外 AI 领域华人专家，举办逾 900 场活动，累计观看人次超过 1000 万，也深度参与过世界人工智能大会、智源大会、世界青年科学家峰会等重要会议。它的线上线下活动覆盖近 200 所国内外顶尖高校，国内实现 C9 联盟全覆盖及双一流高校 90% 以上渗透率，也和多个国际一流实验室建立了合作关系。\n\n对我来说，AI TIME 最有价值的地方，不是办了多少场活动，而是让一些原本不会相遇的人坐到同一张桌子上。讲者中华人青年学者与博士占比超过 80%，有 1600 多位，他们来自全球顶尖高校、研究机构和科技企业，包括微软、Meta、Open AI、谷歌等机构。官网是 www.aitime.cn，公众号是“AI TIME论道”。'
 }
 
 function getKnownOpinionReply(text: string) {
